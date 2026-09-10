@@ -13,6 +13,7 @@ ai:
   apiKey: ""
   model: "qwen3-vl-flash"
   maxChecksPerPrint: 50
+  minIntervalSeconds: 30 # 两次 AI 分析的最小间隔，0 = 不限制
 
 trigger:
   mode: "layer" # layer | interval

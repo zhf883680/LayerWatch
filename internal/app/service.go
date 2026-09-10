@@ -64,9 +64,10 @@ type Service struct {
 	mu     sync.Mutex
 	active *runtimeSession
 
-	captureMu sync.Mutex
-	aiMu      sync.Mutex
-	aiStates  map[int64]*aiState
+	captureMu   sync.Mutex
+	aiMu        sync.Mutex
+	aiStates    map[int64]*aiState
+	lastAnalyze map[int64]time.Time
 
 	lastLayer   map[int64]int
 	lastLayerMu sync.Mutex
@@ -99,6 +100,7 @@ func New(cfg *config.Store, db *store.Store, dataDir string, source SnapshotSour
 		detector:      detector,
 		encoder:       encoder,
 		aiStates:      make(map[int64]*aiState),
+		lastAnalyze:   make(map[int64]time.Time),
 		lastLayer:     make(map[int64]int),
 		lightSessions: make(map[int64]bool),
 	}
@@ -491,6 +493,10 @@ func (s *Service) maybeAnalyze(sessionID int64) {
 			return
 		}
 	}
+	// 层号变化过快时按最小间隔限流，帧照抓，只是少打几次 AI。
+	if !s.analyzeAllowed(sessionID, cfg.AI.MinIntervalSeconds) {
+		return
+	}
 	s.aiMu.Lock()
 	state := s.aiStates[sessionID]
 	if state == nil {
@@ -509,11 +515,17 @@ func (s *Service) maybeAnalyze(sessionID int64) {
 
 func (s *Service) aiLoop(sessionID int64) {
 	for {
-		if cfg := s.cfg.Get(); cfg.AI.MaxChecksPerPrint > 0 {
+		cfg := s.cfg.Get()
+		if cfg.AI.MaxChecksPerPrint > 0 {
 			if n, err := s.db.CountChecks(sessionID); err == nil && n >= cfg.AI.MaxChecksPerPrint {
 				break
 			}
 		}
+		// 间隔未到就退出循环，等下一次抓帧再触发，避免连续补跑。
+		if !s.analyzeAllowed(sessionID, cfg.AI.MinIntervalSeconds) {
+			break
+		}
+		s.markAnalyze(sessionID)
 		if err := s.analyzeOnce(sessionID); err != nil {
 			log.Printf("[ai] 任务 #%d 分析失败: %v", sessionID, err)
 		}
@@ -534,6 +546,23 @@ func (s *Service) aiLoop(sessionID int64) {
 		state.running = false
 		state.pending = false
 	}
+	s.aiMu.Unlock()
+}
+
+// analyzeAllowed 判断距离上次 AI 分析是否已超过最小间隔；minIntervalSeconds<=0 表示不限速。
+func (s *Service) analyzeAllowed(sessionID int64, minIntervalSeconds int) bool {
+	if minIntervalSeconds <= 0 {
+		return true
+	}
+	s.aiMu.Lock()
+	defer s.aiMu.Unlock()
+	last, ok := s.lastAnalyze[sessionID]
+	return !ok || time.Since(last) >= time.Duration(minIntervalSeconds)*time.Second
+}
+
+func (s *Service) markAnalyze(sessionID int64) {
+	s.aiMu.Lock()
+	s.lastAnalyze[sessionID] = time.Now()
 	s.aiMu.Unlock()
 }
 

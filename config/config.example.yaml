@@ -11,6 +11,7 @@ ai:
   apiKey: "YOUR_API_KEY"
   model: "qwen3-vl-flash"
   maxChecksPerPrint: 50
+  minIntervalSeconds: 30
 
 trigger:
   mode: "layer"

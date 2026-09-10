@@ -32,6 +32,8 @@ type AI struct {
 	APIKey            string `yaml:"apiKey" json:"apiKey"`
 	Model             string `yaml:"model" json:"model"`
 	MaxChecksPerPrint int    `yaml:"maxChecksPerPrint" json:"maxChecksPerPrint"`
+	// MinIntervalSeconds 是两次 AI 分析之间的最小间隔，避免层号快速变化时连打 AI。0 表示不限制。
+	MinIntervalSeconds int `yaml:"minIntervalSeconds" json:"minIntervalSeconds"`
 }
 
 type Trigger struct {
@@ -79,10 +81,11 @@ func Default() Config {
 			StatusEntity: "sensor.bambu_lab_print_status",
 		},
 		AI: AI{
-			Enabled:           true,
-			BaseURL:           "https://dashscope.aliyuncs.com/compatible-mode/v1",
-			Model:             "qwen3-vl-flash",
-			MaxChecksPerPrint: 50,
+			Enabled:            true,
+			BaseURL:            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+			Model:              "qwen3-vl-flash",
+			MaxChecksPerPrint:  50,
+			MinIntervalSeconds: 30,
 		},
 		Trigger: Trigger{Mode: TriggerLayer, IntervalSeconds: 10},
 		Cleanup: Cleanup{RetentionDays: 7},
@@ -127,6 +130,12 @@ func (c *Config) Normalize() {
 	}
 	if c.AI.MaxChecksPerPrint < 0 {
 		c.AI.MaxChecksPerPrint = d.AI.MaxChecksPerPrint
+	}
+	if c.AI.MinIntervalSeconds < 0 {
+		c.AI.MinIntervalSeconds = d.AI.MinIntervalSeconds
+	}
+	if c.AI.MinIntervalSeconds > 3600 {
+		c.AI.MinIntervalSeconds = 3600
 	}
 
 	c.Trigger.Mode = strings.ToLower(strings.TrimSpace(c.Trigger.Mode))

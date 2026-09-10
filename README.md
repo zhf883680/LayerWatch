@@ -53,6 +53,7 @@ ai:
   apiKey: "视觉模型 API Key"
   model: "qwen3-vl-flash"
   maxChecksPerPrint: 50
+  minIntervalSeconds: 30
 
 trigger:
   mode: "layer" # layer | interval
@@ -219,6 +220,8 @@ GET    /api/health?deep=1
 - 距上次告警至少 5 分钟。
 
 每个打印任务最多调用 AI `maxChecksPerPrint` 次，设为 `0` 表示不限制。
+
+`minIntervalSeconds` 是两次 AI 分析之间的最小间隔（默认 30 秒，`0` = 不限制）：层号变化很快时，帧照常抓取，但不会连续打 AI，省钱也避免刷屏。
 
 
 ## AI 费用估算

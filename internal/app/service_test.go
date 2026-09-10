@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -39,6 +40,24 @@ func (f fakeEntities) EntityState(_ context.Context, entityID string) (string, e
 type fakeNotifier struct{}
 
 func (fakeNotifier) Notify(context.Context, string, string) error { return nil }
+
+type countingDetector struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (d *countingDetector) Enabled() bool { return true }
+func (d *countingDetector) Analyze(context.Context, [][]byte) (*vision.Result, error) {
+	d.mu.Lock()
+	d.calls++
+	d.mu.Unlock()
+	return &vision.Result{Status: vision.StatusNormal, Confidence: 0.95}, nil
+}
+func (d *countingDetector) count() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.calls
+}
 
 type fakeDetector struct{}
 
@@ -165,6 +184,60 @@ func TestPollOnceCapturesWhileRunning(t *testing.T) {
 	frames, err := db.ListFrames(active.ID)
 	if err != nil || len(frames) != 1 || frames[0].Layer != 68 {
 		t.Fatalf("frames=%v err=%v", frames, err)
+	}
+}
+
+func TestAnalyzeRespectsMinInterval(t *testing.T) {
+	tests := []struct {
+		name     string
+		interval int
+		want     int
+	}{
+		{"不限速时每层都分析", 0, 2},
+		{"最小间隔内只分析一次", 60, 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dataDir := t.TempDir()
+			cfgStore, err := config.Open(filepath.Join(dataDir, "config.yaml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg := config.Default()
+			cfg.HomeAssistant.Token = "token"
+			cfg.Trigger.Mode = config.TriggerLayer
+			cfg.AI.Enabled = true
+			cfg.AI.APIKey = "key"
+			cfg.AI.MaxChecksPerPrint = 0
+			cfg.AI.MinIntervalSeconds = tc.interval
+			if err := cfgStore.Update(cfg); err != nil {
+				t.Fatal(err)
+			}
+			db, err := store.Open(filepath.Join(dataDir, "monitor.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			detector := &countingDetector{}
+			service := New(cfgStore, db, dataDir, &fakeSource{data: testJPEG(t)}, fakeEntities{}, fakeNotifier{}, detector, fakeEncoder{})
+			ctx := context.Background()
+			if _, _, err := service.Start(ctx); err != nil {
+				t.Fatal(err)
+			}
+			for layer := 1; layer <= 2; layer++ {
+				if _, captured, err := service.CaptureLayer(ctx, layer); err != nil || !captured {
+					t.Fatalf("layer %d captured=%v err=%v", layer, captured, err)
+				}
+			}
+			deadline := time.Now().Add(3 * time.Second)
+			for time.Now().Before(deadline) && detector.count() < tc.want {
+				time.Sleep(10 * time.Millisecond)
+			}
+			time.Sleep(120 * time.Millisecond)
+			if got := detector.count(); got != tc.want {
+				t.Fatalf("AI 调用次数=%d，期望 %d", got, tc.want)
+			}
+		})
 	}
 }
 

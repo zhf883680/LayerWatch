@@ -51,6 +51,7 @@ ai:
   apiKey: "Vision model API key"
   model: "qwen3-vl-flash"
   maxChecksPerPrint: 50
+  minIntervalSeconds: 30
 
 trigger:
   mode: "layer" # layer | interval
@@ -217,6 +218,8 @@ After each capture, LayerWatch analyzes the five most recent frames together. A 
 - at least five minutes have passed since the previous alert.
 
 Each print task can make at most `maxChecksPerPrint` AI calls. Set it to `0` for unlimited calls.
+
+`minIntervalSeconds` is the minimum gap between two AI analyses (default 30, `0` = unlimited): when layers change quickly, frames are still captured but AI is not called back-to-back.
 
 
 ## AI Cost Estimate
