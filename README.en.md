@@ -9,7 +9,7 @@
   <a href="README.md">简体中文</a> | <a href="README.en.md">English</a>
 </p>
 
-LayerWatch is a print monitoring service for Bambu Lab A1 printers that depends on Home Assistant:
+> **LayerWatch uses AI-powered vision monitoring through Home Assistant cameras to monitor Bambu Lab 3D printing, detect failures such as spaghetti, clogs, displacement, and collisions, and automatically create timelapse videos.**
 
 - Captures images from a Home Assistant camera entity. No direct RTSP management.
 - AI anomaly detection for spaghetti, clogging/material buildup, shifted objects, and nozzle collisions.
@@ -40,9 +40,9 @@ LayerWatch is a print monitoring service for Bambu Lab A1 printers that depends 
 homeAssistant:
   baseURL: "http://homeassistant.local:8123"
   token: "Home Assistant long-lived access token"
-  cameraEntity: "camera.bambu_lab_a1"
-  layerEntity: "sensor.bambu_lab_a1_current_layer"
-  statusEntity: "sensor.bambu_lab_a1_print_status"
+  cameraEntity: "camera.bambu_lab_camera"
+  layerEntity: "sensor.bambu_lab_current_layer"
+  statusEntity: "sensor.bambu_lab_print_status"
 
 ai:
   enabled: true
@@ -130,7 +130,7 @@ DOCKERHUB_TOKEN
 
 ## Trigger Rules
 
-### By Layer (recommended for A1)
+### By Layer (recommended for Bambu Lab)
 
 1. LayerWatch reads `homeAssistant.statusEntity` every 2 seconds.
 2. A print task starts automatically when the state becomes `printing`.
@@ -189,6 +189,47 @@ After each capture, LayerWatch analyzes the five most recent frames together. A 
 - at least five minutes have passed since the previous alert.
 
 Each print task can make at most `maxChecksPerPrint` AI calls. Set it to `0` for unlimited calls.
+
+
+## AI Cost Estimate
+
+The following estimate uses the provided `qwwen-3.7-flash` pricing:
+
+- Normal input: CNY 0.2 per million tokens
+- Cache-hit input: 10% of normal input price, or 0.2 × 10% = CNY 0.02 per million tokens
+- Output: CNY 0.8 per million tokens
+
+Assume 2000 tokens per call, including 56 output tokens:
+
+```text
+Input = 2000 - 56 = 1944 tokens
+Observed cache-hit ratio = 512 ÷ 1680 ≈ 30.48%
+Estimated cache-hit input ≈ 1944 × 30.48% ≈ 592 tokens
+Estimated non-cached input ≈ 1944 - 592 = 1352 tokens
+```
+
+Cost of one AI call:
+
+```text
+Output: 56 ÷ 1,000,000 × 0.8 = CNY 0.0000448
+Cache-hit input: 592 ÷ 1,000,000 × 0.02 = CNY 0.00001184
+Non-cached input: 1352 ÷ 1,000,000 × 0.2 = CNY 0.0002704
+
+Total per call:
+0.0000448 + 0.00001184 + 0.0002704 ≈ CNY 0.000327
+```
+
+At an estimated 30 AI calls per 3D print:
+
+```text
+0.000327 × 30 = CNY 0.00981
+```
+
+**Conclusion: the estimated AI cost is approximately CNY 0.0098 per print, or about 0.98 Chinese cents — less than one cent.**
+
+If calculated from the actual usage of 1736 tokens instead of the 2000-token estimate, the cost is approximately **CNY 0.00866 per print, or about 0.87 Chinese cents**.
+
+> Actual cost varies with model pricing, image size, cache hit rate, and the number of frames analyzed per call. This estimate is for reference only.
 
 ## Data
 

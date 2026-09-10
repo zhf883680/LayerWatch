@@ -1,9 +1,9 @@
 homeAssistant:
   baseURL: "http://homeassistant.local:8123"
   token: "YOUR_LONG_LIVED_ACCESS_TOKEN"
-  cameraEntity: "camera.bambu_lab_a1"
-  layerEntity: "sensor.bambu_lab_a1_current_layer"
-  statusEntity: "sensor.bambu_lab_a1_print_status"
+  cameraEntity: "camera.bambu_lab_camera"
+  layerEntity: "sensor.bambu_lab_current_layer"
+  statusEntity: "sensor.bambu_lab_print_status"
 
 ai:
   enabled: true

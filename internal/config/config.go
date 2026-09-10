@@ -66,9 +66,9 @@ func Default() Config {
 	return Config{
 		HomeAssistant: HomeAssistant{
 			BaseURL:      "http://homeassistant.local:8123",
-			CameraEntity: "camera.bambu_lab_a1",
-			LayerEntity:  "sensor.bambu_lab_a1_current_layer",
-			StatusEntity: "sensor.bambu_lab_a1_print_status",
+			CameraEntity: "camera.bambu_lab_camera",
+			LayerEntity:  "sensor.bambu_lab_current_layer",
+			StatusEntity: "sensor.bambu_lab_print_status",
 		},
 		AI: AI{
 			Enabled:           true,

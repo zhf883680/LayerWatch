@@ -9,7 +9,7 @@
   <a href="README.md">简体中文</a> | <a href="README.en.md">English</a>
 </p>
 
-依赖 Home Assistant 的 Bambu Lab A1 打印监控服务：
+> **LayerWatch 通过 Home Assistant 摄像头与 AI 视觉分析监控 Bambu Lab 3D 打印过程，及时发现炒面、堵头、位移和碰撞等异常，并自动生成延时视频。**
 
 - 使用 HA 中指定的摄像头实体抓图，不再管理 RTSP。
 - AI 异常检测：炒面、堵头/积料、打印件位移、喷嘴碰撞。
@@ -42,9 +42,9 @@
 homeAssistant:
   baseURL: "http://homeassistant.local:8123"
   token: "HA 长期访问 Token"
-  cameraEntity: "camera.bambu_lab_a1"
-  layerEntity: "sensor.bambu_lab_a1_current_layer"
-  statusEntity: "sensor.bambu_lab_a1_print_status"
+  cameraEntity: "camera.bambu_lab_camera"
+  layerEntity: "sensor.bambu_lab_current_layer"
+  statusEntity: "sensor.bambu_lab_print_status"
 
 ai:
   enabled: true
@@ -191,6 +191,47 @@ GET    /api/health?deep=1
 - 距上次告警至少 5 分钟。
 
 每个打印任务最多调用 AI `maxChecksPerPrint` 次，设为 `0` 表示不限制。
+
+
+## AI 费用估算
+
+以下按照 `qwwen-3.7-flash` 的价格计算：
+
+- 正常输入：0.2 元 / 百万 token
+- 缓存命中输入：正常输入价格的 10%，即 0.2 × 10% = 0.02 元 / 百万 token
+- 输出：0.8 元 / 百万 token
+
+每次调用按 2000 token 估算，其中输出为 56 token：
+
+```text
+输入 = 2000 - 56 = 1944 token
+实际缓存命中比例 = 512 ÷ 1680 ≈ 30.48%
+折算后缓存命中输入 ≈ 1944 × 30.48% ≈ 592 token
+折算后非缓存输入 ≈ 1944 - 592 = 1352 token
+```
+
+单次 AI 调用费用：
+
+```text
+输出：56 ÷ 1,000,000 × 0.8 = 0.0000448 元
+缓存输入：592 ÷ 1,000,000 × 0.02 = 0.00001184 元
+非缓存输入：1352 ÷ 1,000,000 × 0.2 = 0.0002704 元
+
+单次合计：
+0.0000448 + 0.00001184 + 0.0002704 ≈ 0.000327 元
+```
+
+一次 3D 打印按 30 次 AI 调用估算：
+
+```text
+0.000327 × 30 = 0.00981 元
+```
+
+**结论：一次 3D 打印的 AI 预估费用约为 0.0098 元，也就是约 0.98 分钱，不到 1 分钱。**
+
+如果直接按实际用量 1736 token 计算，而不是按 2000 token 估算，一次打印约为 **0.00866 元，约 0.87 分钱**。
+
+> 实际费用会根据模型价格、图片尺寸、缓存命中率和每次分析帧数变化，以上仅用于估算。
 
 ## 数据
 
