@@ -13,8 +13,8 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates ffmpeg tzdata
 WORKDIR /app
 COPY --from=build /out/layerwatch /usr/local/bin/layerwatch
-COPY config/config.example.yaml /app/config/config.yaml
+COPY config/config.example.yaml /app/config.example.yaml
 VOLUME ["/app/data"]
 EXPOSE 19091
 ENTRYPOINT ["layerwatch"]
-CMD ["-config", "/app/config/config.yaml", "-data", "/app/data"]
+CMD ["-config", "/app/data/config.yaml", "-data", "/app/data"]

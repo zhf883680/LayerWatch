@@ -3,10 +3,10 @@ services:
     image: zhf883680/layerwatch:latest
     container_name: layerwatch
     restart: unless-stopped
+    pull_policy: always
     ports:
       - "19091:19091"
     volumes:
       - ./data:/app/data
-      - ./config:/app/config
     environment:
       - TZ=Asia/Shanghai

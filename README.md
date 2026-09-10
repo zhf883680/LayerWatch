@@ -72,22 +72,52 @@ notification:
 
 也可直接打开 Web 页面修改。HA Token、API Key 会保存在配置文件中，请限制配置文件权限。
 
-## 运行
+## 使用 Docker 运行（推荐）
 
-```bash
-git clone https://github.com/zhf883680/LayerWatch.git
-cd LayerWatch
-docker compose pull
-docker compose up -d
-```
-
-Docker Hub 镜像：
+运行用户不需要克隆或编译源码，直接使用 Docker Hub 镜像：
 
 ```text
 zhf883680/layerwatch:latest
 ```
 
-源码本地构建：
+支持 `amd64`、`arm64` 和 `armv7`，Docker 会自动选择设备对应的架构。
+
+```bash
+mkdir -p "$HOME/layerwatch/data"
+
+docker run -d   --name layerwatch   --restart unless-stopped   --pull always   -p 19091:19091   -v "$HOME/layerwatch/data:/app/data"   -e TZ=Asia/Shanghai   zhf883680/layerwatch:latest
+```
+
+打开 `http://<服务 IP>:19091`，进入“设定”页填写 HA、AI、触发和通知配置。配置和数据库都会保存在：
+
+```text
+$HOME/layerwatch/data/config.yaml
+$HOME/layerwatch/data/monitor.db
+```
+
+更新镜像：
+
+```bash
+docker pull zhf883680/layerwatch:latest
+docker rm -f layerwatch
+```
+
+然后重新执行上面的 `docker run` 命令，`data` 目录中的数据不会丢失。
+
+也可以使用仓库中的 `docker-compose.yml`：
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## 开发运行
+
+```bash
+go run ./cmd/server
+```
+
+本机需要安装 ffmpeg，或者通过 `FFMPEG_BINARY` 指定可执行文件。源码构建 Docker 镜像：
 
 ```bash
 docker build -t layerwatch .
@@ -99,16 +129,6 @@ docker build -t layerwatch .
 DOCKERHUB_USERNAME
 DOCKERHUB_TOKEN
 ```
-
-访问 `http://<服务 IP>:19091`。
-
-本地运行：
-
-```bash
-go run ./cmd/server
-```
-
-本机需要安装 ffmpeg，或者通过 `FFMPEG_BINARY` 指定可执行文件。
 
 ## 触发规则
 

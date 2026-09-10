@@ -70,22 +70,52 @@ notification:
 
 Settings can also be edited from the web interface. The Home Assistant token and AI API key are stored in the configuration file, so restrict access to that file.
 
-## Run
+## Run with Docker (recommended)
 
-```bash
-git clone https://github.com/zhf883680/LayerWatch.git
-cd LayerWatch
-docker compose pull
-docker compose up -d
-```
-
-Docker Hub image:
+End users do not need to clone or compile the source. Pull the published Docker image directly:
 
 ```text
 zhf883680/layerwatch:latest
 ```
 
-Build from source:
+The image supports `amd64`, `arm64`, and `armv7`. Docker selects the correct architecture automatically.
+
+```bash
+mkdir -p "$HOME/layerwatch/data"
+
+docker run -d   --name layerwatch   --restart unless-stopped   --pull always   -p 19091:19091   -v "$HOME/layerwatch/data:/app/data"   -e TZ=Asia/Shanghai   zhf883680/layerwatch:latest
+```
+
+Open `http://<server-ip>:19091` and configure Home Assistant, AI, triggers, and notifications on the Settings page. Configuration and data are stored in:
+
+```text
+$HOME/layerwatch/data/config.yaml
+$HOME/layerwatch/data/monitor.db
+```
+
+Update the image:
+
+```bash
+docker pull zhf883680/layerwatch:latest
+docker rm -f layerwatch
+```
+
+Run the same `docker run` command again. Data in the mounted directory is preserved.
+
+You can also use the included `docker-compose.yml`:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## Development
+
+```bash
+go run ./cmd/server
+```
+
+FFmpeg must be installed locally, or set `FFMPEG_BINARY` to the executable path. Build the Docker image from source with:
 
 ```bash
 docker build -t layerwatch .
@@ -97,20 +127,6 @@ Automated publishing requires these GitHub Actions secrets:
 DOCKERHUB_USERNAME
 DOCKERHUB_TOKEN
 ```
-
-Open the web interface at:
-
-```text
-http://<server-ip>:19091
-```
-
-Run locally:
-
-```bash
-go run ./cmd/server
-```
-
-FFmpeg must be installed locally, or set `FFMPEG_BINARY` to the executable path.
 
 ## Trigger Rules
 
