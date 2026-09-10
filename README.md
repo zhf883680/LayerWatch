@@ -16,6 +16,7 @@
 - 延时视频：与 AI 共用同一批抽帧，打印结束后自动编码 MP4。
 - 触发：按当前层变化，或按固定秒数；实体由用户显式指定，不做自动发现。
 - 通知：HA 持久通知与 Bark 可同时启用，不需要 Webhook 或图床。
+- 照明：可在抓图前自动打开 HA 照明实体，支持打印期间保持亮灯。
 - 清理：视频和现场图按天保留，出片后自动删除中间帧。
 - FFmpeg、数据库、目录和编码参数均为内置默认值。
 - Web 界面支持中文 / English 切换。
@@ -59,6 +60,12 @@ trigger:
 
 cleanup:
   retentionDays: 7 # 0 = 永久保留
+
+lighting:
+  enabled: false
+  entity: "light.bambu_lab_chamber_light"
+  delaySeconds: 3
+  keepOnDuringPrint: true
 
 notification:
   haEnabled: true # HA 持久通知
@@ -156,6 +163,26 @@ Bambu Lab 官方 HA 集成常用实体类似：
 
 实际实体名以你的 HA「开发者工具 → 状态」为准。服务不会猜路径或实体。
 
+## 夜间照明
+
+打印机弱光环境下，AI 可能无法判断打印状态。可在“设定 → 照明控制”配置 HA 照明实体：
+
+```yaml
+lighting:
+  enabled: true
+  entity: "light.bambu_lab_chamber_light"
+  delaySeconds: 3
+  keepOnDuringPrint: true
+```
+
+行为说明：
+
+- `delaySeconds`：抓图前提前打开照明并等待指定秒数，让摄像头自动曝光稳定。
+- `keepOnDuringPrint: true`：第一次抓图时开灯，并保持到打印任务结束。
+- `keepOnDuringPrint: false`：仅在每次抓图前开灯，抓图完成后立即关灯。
+- 如果照明原本已经打开，LayerWatch 不会在任务结束时把它关闭。
+- 照明控制失败不会阻止摄像头抓图，只会记录错误日志。
+
 ## API
 
 ```text
@@ -165,6 +192,7 @@ PUT    /api/config
 POST   /api/test/ha
 POST   /api/test/ai
 POST   /api/test/notification
+POST   /api/test/light
 POST   /api/session/start
 POST   /api/session/stop
 POST   /api/session/layer?layer=N

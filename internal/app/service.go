@@ -70,6 +70,9 @@ type Service struct {
 
 	lastLayer   map[int64]int
 	lastLayerMu sync.Mutex
+
+	lightMu       sync.Mutex
+	lightSessions map[int64]bool
 }
 
 type runtimeSession struct {
@@ -84,16 +87,17 @@ type aiState struct {
 
 func New(cfg *config.Store, db *store.Store, dataDir string, source SnapshotSource, entities EntitySource, notifier Notifier, detector Detector, encoder Encoder) *Service {
 	return &Service{
-		cfg:       cfg,
-		db:        db,
-		dataDir:   dataDir,
-		source:    source,
-		entities:  entities,
-		notifier:  notifier,
-		detector:  detector,
-		encoder:   encoder,
-		aiStates:  make(map[int64]*aiState),
-		lastLayer: make(map[int64]int),
+		cfg:           cfg,
+		db:            db,
+		dataDir:       dataDir,
+		source:        source,
+		entities:      entities,
+		notifier:      notifier,
+		detector:      detector,
+		encoder:       encoder,
+		aiStates:      make(map[int64]*aiState),
+		lastLayer:     make(map[int64]int),
+		lightSessions: make(map[int64]bool),
 	}
 }
 
@@ -147,6 +151,7 @@ func (s *Service) Stop(ctx context.Context) (store.Session, bool, error) {
 	// 等待正在写入的那一张结束后再进入编码，保证帧序列完整。
 	s.captureMu.Lock()
 	s.captureMu.Unlock()
+	s.releaseSessionLight(active.session.ID)
 	if err := s.db.SetSessionStatus(active.session.ID, store.SessionEncoding, ""); err != nil {
 		return store.Session{}, false, err
 	}
@@ -214,6 +219,7 @@ func (s *Service) capture(ctx context.Context, layer int) (store.Frame, bool, er
 			return store.Frame{}, false, nil
 		}
 	}
+	releaseLight := s.prepareCaptureLight(ctx, sessionID)
 	var data []byte
 	var err error
 	for attempt := 0; attempt <= maxSnapshotRetry; attempt++ {
@@ -224,11 +230,13 @@ func (s *Service) capture(ctx context.Context, layer int) (store.Frame, bool, er
 		if attempt < maxSnapshotRetry {
 			select {
 			case <-ctx.Done():
+				releaseLight()
 				return store.Frame{}, false, ctx.Err()
 			case <-time.After(500 * time.Millisecond):
 			}
 		}
 	}
+	releaseLight()
 	if err != nil {
 		return store.Frame{}, false, fmt.Errorf("抓取摄像头快照: %w", err)
 	}

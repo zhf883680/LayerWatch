@@ -40,6 +40,7 @@ The same captured frames can also be encoded into a timelapse video automaticall
 - Automatic MP4 encoding with built-in FFmpeg defaults
 - Home Assistant persistent notifications
 - Optional Bark push notifications
+- Optional Home Assistant-controlled lighting for night captures
 - Automatic data retention and cleanup
 - Chinese and English web interface
 - No RTSP, go2rtc, webhook, or image host configuration required
@@ -81,6 +82,7 @@ Go to **Settings** and configure:
 - Camera, current-layer, and optional print-status entities
 - AI endpoint, API key, model, and maximum calls per print
 - Layer or interval trigger mode
+- Automatic light control with configurable pre-capture delay
 - Home Assistant and Bark notifications
 
 Configuration and data are preserved in:
@@ -121,7 +123,7 @@ Run the same `docker run` command again. The mounted data directory is preserved
 ```text
 zhf883680/layerwatch:latest
 zhf883680/layerwatch:main
-zhf883680/layerwatch:v1.0.3
+zhf883680/layerwatch:vX.Y.Z
 zhf883680/layerwatch:sha-<commit>
 ```
 

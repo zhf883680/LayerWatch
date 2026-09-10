@@ -21,6 +21,12 @@ trigger:
 cleanup:
   retentionDays: 7
 
+lighting:
+  enabled: false
+  entity: "light.bambu_lab_chamber_light"
+  delaySeconds: 3
+  keepOnDuringPrint: true
+
 notification:
   haEnabled: true
   barkEnabled: false

@@ -16,6 +16,7 @@
 - Timelapse video generation using the same captured frames and automatic MP4 encoding after printing.
 - Triggering by layer changes or a fixed time interval. Entity IDs are explicitly configured with no auto-discovery.
 - Notifications through Home Assistant persistent notifications and optionally Bark. No webhook or image host required.
+- Lighting control can turn on a Home Assistant light before capture and keep it on during printing.
 - Automatic cleanup of videos and alert images by retention period, with intermediate frames removed after encoding.
 - Built-in defaults for FFmpeg, database, storage, and encoding settings.
 - Bilingual web interface with Chinese and English language switching.
@@ -57,6 +58,12 @@ trigger:
 
 cleanup:
   retentionDays: 7 # 0 = keep forever
+
+lighting:
+  enabled: false
+  entity: "light.bambu_lab_chamber_light"
+  delaySeconds: 3
+  keepOnDuringPrint: true
 
 notification:
   haEnabled: true # Home Assistant persistent notifications
@@ -154,6 +161,26 @@ Typical entities exposed by the official Bambu Lab Home Assistant integration:
 
 Use Home Assistant Developer Tools → States to confirm the actual entity IDs. LayerWatch never guesses paths or entities.
 
+## Night Lighting
+
+AI detection may fail when the printer chamber is dark. Configure a Home Assistant light in **Settings → Lighting Control**:
+
+```yaml
+lighting:
+  enabled: true
+  entity: "light.bambu_lab_chamber_light"
+  delaySeconds: 3
+  keepOnDuringPrint: true
+```
+
+Behavior:
+
+- `delaySeconds`: turn on the light and wait this many seconds before capture so camera exposure stabilizes.
+- `keepOnDuringPrint: true`: turn on the light for the first capture and keep it on until the print task ends.
+- `keepOnDuringPrint: false`: turn the light on only around each capture and turn it off immediately afterward.
+- If the light was already on, LayerWatch does not turn it off when the task ends.
+- Lighting failures are logged but do not block camera capture.
+
 ## API
 
 ```text
@@ -163,6 +190,7 @@ PUT    /api/config
 POST   /api/test/ha
 POST   /api/test/ai
 POST   /api/test/notification
+POST   /api/test/light
 POST   /api/session/start
 POST   /api/session/stop
 POST   /api/session/layer?layer=N

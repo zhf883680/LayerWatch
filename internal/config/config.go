@@ -43,6 +43,13 @@ type Cleanup struct {
 	RetentionDays int `yaml:"retentionDays" json:"retentionDays"`
 }
 
+type Lighting struct {
+	Enabled           bool   `yaml:"enabled" json:"enabled"`
+	Entity            string `yaml:"entity" json:"entity"`
+	DelaySeconds      int    `yaml:"delaySeconds" json:"delaySeconds"`
+	KeepOnDuringPrint bool   `yaml:"keepOnDuringPrint" json:"keepOnDuringPrint"`
+}
+
 // Notification 同时支持 HA 持久通知和 Bark，可分别启用。
 type Notification struct {
 	HAEnabled   bool   `yaml:"haEnabled" json:"haEnabled"`
@@ -59,6 +66,7 @@ type Config struct {
 	AI            AI            `yaml:"ai" json:"ai"`
 	Trigger       Trigger       `yaml:"trigger" json:"trigger"`
 	Cleanup       Cleanup       `yaml:"cleanup" json:"cleanup"`
+	Lighting      Lighting      `yaml:"lighting" json:"lighting"`
 	Notification  Notification  `yaml:"notification" json:"notification"`
 }
 
@@ -78,6 +86,11 @@ func Default() Config {
 		},
 		Trigger: Trigger{Mode: TriggerLayer, IntervalSeconds: 10},
 		Cleanup: Cleanup{RetentionDays: 7},
+		Lighting: Lighting{
+			Entity:            "light.bambu_lab_chamber_light",
+			DelaySeconds:      3,
+			KeepOnDuringPrint: true,
+		},
 		Notification: Notification{
 			HAEnabled:   true,
 			BarkBaseURL: "https://api.day.app",
@@ -128,6 +141,17 @@ func (c *Config) Normalize() {
 	}
 	if c.Cleanup.RetentionDays < 0 {
 		c.Cleanup.RetentionDays = d.Cleanup.RetentionDays
+	}
+
+	c.Lighting.Entity = strings.TrimSpace(c.Lighting.Entity)
+	if c.Lighting.Entity == "" {
+		c.Lighting.Entity = d.Lighting.Entity
+	}
+	if c.Lighting.DelaySeconds < 0 {
+		c.Lighting.DelaySeconds = d.Lighting.DelaySeconds
+	}
+	if c.Lighting.DelaySeconds > 30 {
+		c.Lighting.DelaySeconds = 30
 	}
 
 	c.Notification.BarkKey = strings.TrimSpace(c.Notification.BarkKey)

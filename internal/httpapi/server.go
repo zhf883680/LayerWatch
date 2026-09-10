@@ -34,6 +34,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/test/ha", s.testHA)
 	mux.HandleFunc("POST /api/test/ai", s.testAI)
 	mux.HandleFunc("POST /api/test/notification", s.testNotification)
+	mux.HandleFunc("POST /api/test/light", s.testLight)
 
 	mux.HandleFunc("POST /api/session/start", s.start)
 	mux.HandleFunc("POST /api/session/stop", s.stop)
@@ -117,6 +118,12 @@ func (s *Server) testNotification(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	writeJSON(w, http.StatusOK, s.app.TestNotification(ctx))
+}
+
+func (s *Server) testLight(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	writeJSON(w, http.StatusOK, s.app.TestLight(ctx))
 }
 
 func (s *Server) start(w http.ResponseWriter, r *http.Request) {

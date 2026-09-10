@@ -201,3 +201,27 @@ func normalizeToken(raw string) string {
 	}
 	return value
 }
+
+// CallService 调用 Home Assistant 服务，例如 light.turn_on。
+func (c *Client) CallService(ctx context.Context, domain, service string, data any) error {
+	domain = strings.TrimSpace(domain)
+	service = strings.TrimSpace(service)
+	if domain == "" || service == "" {
+		return errors.New("HA 服务名称不能为空")
+	}
+	cfg := c.cfg.Get()
+	path := "/api/services/" + url.PathEscape(domain) + "/" + url.PathEscape(service)
+	req, err := c.request(ctx, http.MethodPost, path, data, cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("调用 HA 服务 %s.%s: %w", domain, service, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return responseError(resp)
+	}
+	return nil
+}
