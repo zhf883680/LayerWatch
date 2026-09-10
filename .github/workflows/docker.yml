@@ -87,6 +87,16 @@ jobs:
           provenance: true
           sbom: true
 
+      - name: Update Docker Hub description
+        if: github.ref == 'refs/heads/main'
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: zhf883680/layerwatch
+          short-description: "AI-powered 3D print monitoring, anomaly detection, and timelapse via Home Assistant."
+          readme-filepath: ./README.dockerhub.md
+
   release:
     name: GitHub Release
     needs:
