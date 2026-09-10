@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -264,8 +265,26 @@ func (s *Server) videoFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "视频文件不存在")
 		return
 	}
+	w.Header().Set("Content-Type", videoContentType(video.FilePath))
 	w.Header().Set("Content-Disposition", `inline; filename="`+strings.ReplaceAll(video.FileName, `"`, "")+`"`)
 	http.ServeFile(w, r, video.FilePath)
+}
+
+// videoContentType 显式给出视频 MIME：容器里可能没有 /etc/mime.types，
+// 那样 http.ServeFile 会把 mp4 嗅探成 application/octet-stream，浏览器只会下载。
+func videoContentType(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".mp4", ".m4v":
+		return "video/mp4"
+	case ".mov":
+		return "video/quicktime"
+	case ".webm":
+		return "video/webm"
+	case ".mkv":
+		return "video/x-matroska"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 func (s *Server) deleteVideo(w http.ResponseWriter, r *http.Request) {

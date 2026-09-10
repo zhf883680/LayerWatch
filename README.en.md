@@ -13,7 +13,7 @@
 
 - Captures images from a Home Assistant camera entity. No direct RTSP management.
 - AI anomaly detection for spaghetti, clogging/material buildup, shifted objects, and nozzle collisions.
-- Timelapse video generation using the same captured frames and automatic MP4 encoding after printing.
+- Timelapse video generation using the same captured frames and automatic MP4 encoding after printing, playable in the web UI.
 - Triggering by layer changes or a fixed time interval. Entity IDs are explicitly configured with no auto-discovery.
 - Notifications through Home Assistant persistent notifications and optionally Bark. No webhook or image host required.
 - Lighting control can turn on a Home Assistant light before capture and keep it on during printing.
