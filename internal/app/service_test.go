@@ -28,9 +28,13 @@ func (f *fakeSource) Snapshot(context.Context) ([]byte, error) {
 	return f.data, nil
 }
 
-type fakeEntities struct{}
+type fakeEntities struct {
+	states map[string]string
+}
 
-func (fakeEntities) EntityState(context.Context, string) (string, error) { return "", nil }
+func (f fakeEntities) EntityState(_ context.Context, entityID string) (string, error) {
+	return f.states[entityID], nil
+}
 
 type fakeNotifier struct{}
 
@@ -121,6 +125,68 @@ func TestParseLayer(t *testing.T) {
 		if got := parseLayer(input); got != want {
 			t.Fatalf("parseLayer(%q)=%d want %d", input, got, want)
 		}
+	}
+}
+
+func TestPollOnceCapturesWhileRunning(t *testing.T) {
+	dataDir := t.TempDir()
+	cfgStore, err := config.Open(filepath.Join(dataDir, "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Default()
+	cfg.HomeAssistant.Token = "token"
+	cfg.HomeAssistant.StatusEntity = "sensor.printer_print_status"
+	cfg.HomeAssistant.LayerEntity = "sensor.printer_current_layer"
+	cfg.Trigger.Mode = config.TriggerLayer
+	cfg.AI.Enabled = false
+	if err := cfgStore.Update(cfg); err != nil {
+		t.Fatal(err)
+	}
+	db, err := store.Open(filepath.Join(dataDir, "monitor.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	entities := fakeEntities{states: map[string]string{
+		"sensor.printer_print_status":  "running",
+		"sensor.printer_current_layer": "68",
+	}}
+	source := &fakeSource{data: testJPEG(t)}
+	service := New(cfgStore, db, dataDir, source, entities, fakeNotifier{}, fakeDetector{}, fakeEncoder{})
+
+	if err := service.pollOnce(context.Background()); err != nil {
+		t.Fatalf("pollOnce err=%v", err)
+	}
+	active, err := db.ActiveSession()
+	if err != nil || active == nil {
+		t.Fatalf("期望 running 状态自动开始任务，active=%v err=%v", active, err)
+	}
+	frames, err := db.ListFrames(active.ID)
+	if err != nil || len(frames) != 1 || frames[0].Layer != 68 {
+		t.Fatalf("frames=%v err=%v", frames, err)
+	}
+}
+
+func TestStatusClassification(t *testing.T) {
+	for _, status := range []string{"printing", "running", "prepare", "preparing"} {
+		if !statusIsPrinting(status) || !statusAllowsCapture(status) {
+			t.Fatalf("status %q 应当视为打印中", status)
+		}
+	}
+	for _, status := range []string{"idle", "finished", "finish", "failed", "fail", "stopped", "stop", "offline"} {
+		if !statusIsStopped(status) {
+			t.Fatalf("status %q 应当视为已结束", status)
+		}
+		if statusAllowsCapture(status) {
+			t.Fatalf("status %q 不应当抓图", status)
+		}
+	}
+	if !statusAllowsCapture("") {
+		t.Fatal("未配置状态实体时应当允许抓图")
+	}
+	if statusAllowsCapture("paused") {
+		t.Fatal("暂停时不应当抓图")
 	}
 }
 

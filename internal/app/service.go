@@ -73,6 +73,9 @@ type Service struct {
 
 	lightMu       sync.Mutex
 	lightSessions map[int64]bool
+
+	statusMu   sync.Mutex
+	lastStatus string
 }
 
 type runtimeSession struct {
@@ -352,12 +355,13 @@ func (s *Service) pollOnce(ctx context.Context) error {
 		}
 	}
 
-	switch status {
-	case "printing":
+	s.noteStatus(status)
+	if statusIsPrinting(status) {
 		if _, _, err := s.Start(ctx); err != nil {
 			errs = append(errs, fmt.Errorf("自动开始任务: %w", err))
 		}
-	case "idle", "finished", "failed", "stopped", "offline":
+	}
+	if statusIsStopped(status) {
 		if _, found, err := s.Stop(ctx); err != nil {
 			errs = append(errs, fmt.Errorf("自动停止任务: %w", err))
 		} else if found {
@@ -400,12 +404,48 @@ func (s *Service) shouldCaptureByStatus(ctx context.Context) bool {
 	return statusAllowsCapture(strings.ToLower(strings.TrimSpace(status)))
 }
 
-func statusAllowsCapture(status string) bool {
+// statusIsPrinting 判断打印状态是否处于打印中。
+// 不同版本的 Bambu Lab HA 集成会返回 printing / running / prepare 等，这里统一识别。
+func statusIsPrinting(status string) bool {
 	switch status {
-	case "", "printing", "prepare", "preparing":
+	case "printing", "running", "prepare", "preparing":
 		return true
 	default:
 		return false
+	}
+}
+
+// statusIsStopped 判断打印是否结束，需要停止抓图并出片。
+func statusIsStopped(status string) bool {
+	switch status {
+	case "idle", "finished", "finish", "failed", "fail", "stopped", "stop", "offline":
+		return true
+	default:
+		return false
+	}
+}
+
+func statusAllowsCapture(status string) bool {
+	return status == "" || statusIsPrinting(status)
+}
+
+// noteStatus 只在状态变化时打印一次，避免每 2 秒轮询刷屏，
+// 同时让无法识别的状态可见，而不是静默跳过。
+func (s *Service) noteStatus(status string) {
+	s.statusMu.Lock()
+	changed := s.lastStatus != status
+	s.lastStatus = status
+	s.statusMu.Unlock()
+	if !changed || status == "" {
+		return
+	}
+	switch {
+	case statusIsPrinting(status):
+		log.Printf("[watch] 打印状态=%q，开始抓图", status)
+	case statusIsStopped(status):
+		log.Printf("[watch] 打印状态=%q，已结束", status)
+	default:
+		log.Printf("[watch] 打印状态=%q 不在识别范围内，本次不抓图", status)
 	}
 }
 

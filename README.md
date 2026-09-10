@@ -142,7 +142,7 @@ DOCKERHUB_TOKEN
 ### 按层触发（推荐）
 
 1. 服务每 2 秒读取 `homeAssistant.statusEntity`。
-2. 状态变为 `printing` 时自动创建打印任务。
+2. 状态变为 `printing`、`running` 或 `prepare` 时自动创建打印任务（不同版本的 HA 集成取值不同，服务只在状态变化时打印一次日志）。
 3. 读取 `homeAssistant.layerEntity`，层号增加时为该层抓一帧。
 4. 状态变为 `idle`、`finished`、`failed`、`stopped` 或 `offline` 时停止并编码。
 5. 暂停时继续保留任务，恢复打印后从新层继续。
@@ -151,7 +151,7 @@ DOCKERHUB_TOKEN
 
 ### 按时间触发
 
-打印状态变为 `printing` 后立即抓第一帧，随后每 `intervalSeconds` 秒抓一帧。暂停状态不抓图，结束时保存并编码。
+打印状态变为 `printing`、`running` 或 `prepare` 后立即抓第一帧，随后每 `intervalSeconds` 秒抓一帧。暂停状态不抓图，结束时保存并编码。
 
 ## HA 实体建议
 

@@ -140,7 +140,7 @@ DOCKERHUB_TOKEN
 ### By Layer (recommended for Bambu Lab)
 
 1. LayerWatch reads `homeAssistant.statusEntity` every 2 seconds.
-2. A print task starts automatically when the state becomes `printing`.
+2. A print task starts automatically when the state becomes `printing`, `running`, or `prepare` (naming differs between HA integration versions; the log line is only written when the state changes).
 3. It reads `homeAssistant.layerEntity` and captures one frame when the layer number increases.
 4. It stops and starts encoding when the state becomes `idle`, `finished`, `failed`, `stopped`, or `offline`.
 5. A paused task remains active and continues when new layers appear after resuming.
@@ -149,7 +149,7 @@ If the status entity is empty, the task starts on the first valid layer number. 
 
 ### By Time Interval
 
-The first frame is captured as soon as the print state becomes `printing`. Additional frames are captured every `intervalSeconds`. No frames are captured while paused, and encoding starts when the print finishes.
+The first frame is captured as soon as the print state becomes `printing`, `running`, or `prepare`. Additional frames are captured every `intervalSeconds`. No frames are captured while paused, and encoding starts when the print finishes.
 
 ## Home Assistant Entities
 
