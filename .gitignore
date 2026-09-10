@@ -1,0 +1,6 @@
+.DS_Store
+/data/
+/server
+*.log
+__debug_bin*
+dist/

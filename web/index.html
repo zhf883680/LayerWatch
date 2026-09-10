@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LayerWatch · 层哨</title>
+<link rel="icon" type="image/png" href="/assets/favicon-32.png">
+<link rel="apple-touch-icon" href="/assets/layerwatch-192.png">
+<style>
+:root{--bg:#0b1020;--card:#141b2d;--line:#29334a;--text:#edf2ff;--muted:#94a3b8;--accent:#56c596;--danger:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#09101f,#11182b 45%,#0b1020);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:26px 18px 50px}.brand{display:flex;align-items:center;gap:14px}.brand img{width:56px;height:56px;border-radius:15px;box-shadow:0 8px 24px rgba(0,0,0,.28)}header{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:18px}h1{margin:0;font-size:26px}header p{margin:4px 0 0;color:var(--muted)}.header-actions{display:flex;gap:8px;align-items:center}
+.tabs{display:flex;gap:6px;padding:5px;background:#0d1424;border:1px solid var(--line);border-radius:12px;margin-bottom:16px;overflow:auto}.tab{flex:1;min-width:120px;border:0;border-radius:9px;padding:10px 14px;background:transparent;color:var(--muted);font-weight:700;cursor:pointer}.tab.active{background:var(--accent);color:#06150f}.tab-panel{display:none}.tab-panel.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}.card{grid-column:span 12;background:rgba(20,27,45,.92);border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:0 12px 35px rgba(0,0,0,.18)}.span4{grid-column:span 4}.span6{grid-column:span 6}.span8{grid-column:span 8}
+h2{font-size:16px;margin:0 0 14px;display:flex;justify-content:space-between;align-items:center}.hint{color:var(--muted);font-size:12px;margin:-6px 0 14px}label{display:block;color:var(--muted);font-size:12px;margin:10px 0 5px}input,select{width:100%;padding:10px 11px;background:#0d1424;border:1px solid var(--line);border-radius:9px;color:var(--text);outline:none}input:focus,select:focus{border-color:var(--accent)}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{border:0;border-radius:9px;padding:10px 14px;background:#26324b;color:var(--text);cursor:pointer;font-weight:600}button:hover{filter:brightness(1.12)}button.primary{background:var(--accent);color:#06150f}button.danger{background:#50263a;color:#ffd7e0}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.badge{display:inline-flex;padding:3px 8px;border-radius:999px;background:#25314a;color:var(--muted);font-size:12px}.ok{color:var(--accent)}.bad{color:var(--danger)}.muted{color:var(--muted)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:12px;font-weight:500}td a{color:#8ed8ff;text-decoration:none}.pill{padding:2px 7px;border-radius:999px;background:#26324b;font-size:12px}.pill.alert{background:#5b2230;color:#ffd5dc}
+.check-item{padding:10px 0;border-bottom:1px solid var(--line)}.check-item img{max-width:100%;border-radius:8px;margin-top:8px}.test-result{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;font-size:12px}.test-result div{margin:5px 0}
+#toast{position:fixed;right:18px;bottom:18px;background:#e8fff5;color:#10251b;padding:11px 16px;border-radius:10px;display:none;max-width:380px;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+@media(max-width:800px){.span4,.span6,.span8{grid-column:span 12}.row{grid-template-columns:1fr}header{align-items:start;flex-direction:column}.tab{min-width:100px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="brand"><img src="/assets/layerwatch-192.png" alt="LayerWatch"><div><h1>LayerWatch · 层哨</h1><p data-i18n="subtitle">HA 摄像头 · AI 异常检测 · 自动延时视频</p></div></div>
+  <div class="header-actions">
+    <select id="languageSelect" onchange="setLanguage(this.value)" style="width:auto">
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+    </select>
+    <button onclick="refresh()" data-i18n="refresh">刷新状态</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button id="tabButton-ai" class="tab active" onclick="showTab('ai')" data-i18n="tabAI">1. AI 分析</button>
+  <button id="tabButton-video" class="tab" onclick="showTab('video')" data-i18n="tabVideo">2. 延时视频</button>
+  <button id="tabButton-settings" class="tab" onclick="showTab('settings')" data-i18n="tabSettings">3. 设定</button>
+</nav>
+
+<section id="tab-ai" class="tab-panel active">
+  <div class="grid">
+    <section class="card span4">
+      <h2><span data-i18n="aiStatus">AI 运行状态</span><span id="healthBadge" class="badge" data-i18n="reading">读取中</span></h2>
+      <div id="aiSummaryBox"><div class="muted" data-i18n="noAnalysis">暂无分析记录</div></div>
+      <div class="actions">
+        <button class="primary" onclick="action('/api/session/capture')" data-i18n="captureAnalyze">抓帧并分析</button>
+        <button onclick="testAI()" data-i18n="testAI">检测 AI 端点</button>
+      </div>
+      <div id="aiTestResult" class="test-result muted"></div>
+    </section>
+    <section class="card span8">
+      <h2 data-i18n="latestAI">最近 AI 判断</h2>
+      <div id="checkList" class="muted" data-i18n="noRecords">暂无记录</div>
+    </section>
+  </div>
+</section>
+
+<section id="tab-video" class="tab-panel">
+  <div class="grid">
+    <section class="card span4">
+      <h2 data-i18n="delayTask">延时任务</h2>
+      <div id="sessionStatusBox"><div class="muted" data-i18n="noTask">暂无任务</div></div>
+      <div class="actions">
+        <button class="primary" onclick="action('/api/session/start')" data-i18n="startTask">开始任务</button>
+        <button onclick="action('/api/session/capture')" data-i18n="captureNow">立即抓帧</button>
+        <button class="danger" onclick="action('/api/session/stop')" data-i18n="stopEncode">停止并出片</button>
+      </div>
+      <div class="actions"><button onclick="action('/api/cleanup')" data-i18n="cleanup">清理数据</button></div>
+    </section>
+    <section class="card span8">
+      <h2 data-i18n="timelapseVideos">延时视频</h2>
+      <div id="videoList" class="muted" data-i18n="noVideos">暂无视频</div>
+    </section>
+  </div>
+</section>
+
+<section id="tab-settings" class="tab-panel">
+  <div class="grid">
+    <section class="card span6">
+      <h2 data-i18n="haConnection">Home Assistant 连接</h2>
+      <p class="hint" data-i18n="haHint">地址、Token 和实体完全由你指定；服务不会自动发现实体。</p>
+      <div class="row">
+        <div><label data-i18n="haURL">HA 地址</label><input id="ha_baseURL" placeholder="http://homeassistant.local:8123"></div>
+        <div><label data-i18n="token">长期访问 Token</label><input id="ha_token" type="password" placeholder="eyJ..."></div>
+      </div>
+      <div class="row">
+        <div><label data-i18n="cameraEntity">摄像头实体</label><input id="ha_cameraEntity" placeholder="camera.bambu_lab_a1"></div>
+        <div><label data-i18n="layerEntity">当前层实体</label><input id="ha_layerEntity" placeholder="sensor.bambu_lab_a1_current_layer"></div>
+      </div>
+      <label data-i18n="statusEntity">打印状态实体（可选，用于自动开始/结束）</label><input id="ha_statusEntity" placeholder="sensor.bambu_lab_a1_print_status">
+      <div class="actions"><button onclick="testHA()" data-i18n="testHA">检测 HA 连接</button></div>
+      <div id="haTestResult" class="test-result muted"></div>
+    </section>
+
+    <section class="card span6">
+      <h2 data-i18n="aiEndpoint">AI 端点</h2>
+      <label><input id="ai_enabled" type="checkbox" style="width:auto;margin-right:8px"><span data-i18n="enableAnomaly">启用异常检测</span></label>
+      <div class="row">
+        <div><label data-i18n="baseURL">OpenAI 兼容 Base URL</label><input id="ai_baseURL"></div>
+        <div><label data-i18n="model">模型</label><input id="ai_model"></div>
+      </div>
+      <div class="row">
+        <div><label data-i18n="apiKey">API Key</label><input id="ai_apiKey" type="password"></div>
+        <div><label data-i18n="maxChecks">每次打印最多 AI 次数</label><input id="ai_maxChecksPerPrint" type="number" min="0"></div>
+      </div>
+    </section>
+
+    <section class="card span6">
+      <h2 data-i18n="triggerSettings">触发设置</h2>
+      <label data-i18n="triggerMode">触发模式</label>
+      <select id="trigger_mode" onchange="updateTriggerHelp()">
+        <option value="layer" data-i18n="layerTrigger">按层触发（推荐 A1）</option>
+        <option value="interval" data-i18n="intervalTrigger">按时间触发</option>
+      </select>
+      <p id="triggerHelp" class="hint"></p>
+      <label data-i18n="intervalSeconds">定时抓帧间隔（秒）</label><input id="trigger_intervalSeconds" type="number" min="2">
+    </section>
+
+    <section class="card span6">
+      <h2 data-i18n="dataCleanup">数据清理</h2>
+      <p class="hint" data-i18n="cleanupHint">成功出片后自动删除中间帧。这里设置视频和异常现场图的保留时间。</p>
+      <label data-i18n="retention">视频与现场图保留天数（0 = 永久保留）</label><input id="cleanup_retentionDays" type="number" min="0">
+    </section>
+
+    <section class="card span6">
+      <h2 data-i18n="notifications">通知</h2>
+      <p class="hint" data-i18n="notificationHint">HA 持久通知默认保留；Bark 可同时启用，两个渠道互不影响。</p>
+      <label><input id="notification_haEnabled" type="checkbox" style="width:auto;margin-right:8px"><span data-i18n="enableHA">启用 HA 持久通知</span></label>
+      <label><input id="notification_barkEnabled" type="checkbox" style="width:auto;margin-right:8px"><span data-i18n="enableBark">启用 Bark 推送</span></label>
+      <div class="row">
+        <div><label data-i18n="barkKey">Bark 设备 Key</label><input id="notification_barkKey" type="password"></div>
+        <div><label data-i18n="barkURL">Bark 服务地址</label><input id="notification_barkBaseURL"></div>
+      </div>
+      <div class="row">
+        <div><label data-i18n="barkGroup">通知分组</label><input id="notification_barkGroup"></div>
+        <div><label data-i18n="barkLevel">通知级别</label><select id="notification_barkLevel">
+          <option value="" data-i18n="defaultActive">默认 active</option>
+          <option value="active">active</option>
+          <option value="timeSensitive">timeSensitive</option>
+          <option value="critical">critical</option>
+        </select></div>
+      </div>
+      <label data-i18n="barkVolume">critical 音量（0-10，0 = 默认）</label><input id="notification_barkVolume" type="number" min="0" max="10">
+      <div class="actions"><button onclick="testNotification()" data-i18n="testNotification">发送测试通知</button></div>
+      <div id="notificationTestResult" class="test-result muted"></div>
+    </section>
+
+    <section class="card">
+      <div class="actions" style="margin:0"><button class="primary" onclick="saveConfig()" data-i18n="saveAll">保存全部配置</button><span class="muted" id="saveHint"></span></div>
+    </section>
+  </div>
+</section>
+</main>
+<div id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const messages={
+  zh:{title:'LayerWatch · 层哨',subtitle:'HA 摄像头 · AI 异常检测 · 自动延时视频',refresh:'刷新状态',tabAI:'1. AI 分析',tabVideo:'2. 延时视频',tabSettings:'3. 设定',aiStatus:'AI 运行状态',reading:'读取中',noAnalysis:'暂无分析记录',captureAnalyze:'抓帧并分析',testAI:'检测 AI 端点',latestAI:'最近 AI 判断',noRecords:'暂无记录',delayTask:'延时任务',noTask:'暂无任务',startTask:'开始任务',captureNow:'立即抓帧',stopEncode:'停止并出片',cleanup:'清理数据',timelapseVideos:'延时视频',noVideos:'暂无视频',haConnection:'Home Assistant 连接',haHint:'地址、Token 和实体完全由你指定；服务不会自动发现实体。',haURL:'HA 地址',token:'长期访问 Token',cameraEntity:'摄像头实体',layerEntity:'当前层实体',statusEntity:'打印状态实体（可选，用于自动开始/结束）',testHA:'检测 HA 连接',aiEndpoint:'AI 端点',enableAnomaly:'启用异常检测',baseURL:'OpenAI 兼容 Base URL',model:'模型',apiKey:'API Key',maxChecks:'每次打印最多 AI 次数',triggerSettings:'触发设置',triggerMode:'触发模式',layerTrigger:'按层触发（推荐 A1）',intervalTrigger:'按时间触发',intervalSeconds:'定时抓帧间隔（秒）',dataCleanup:'数据清理',cleanupHint:'成功出片后自动删除中间帧。这里设置视频和异常现场图的保留时间。',retention:'视频与现场图保留天数（0 = 永久保留）',notifications:'通知',notificationHint:'HA 持久通知默认保留；Bark 可同时启用，两个渠道互不影响。',enableHA:'启用 HA 持久通知',enableBark:'启用 Bark 推送',barkKey:'Bark 设备 Key',barkURL:'Bark 服务地址',barkGroup:'通知分组',barkLevel:'通知级别',defaultActive:'默认 active',barkVolume:'critical 音量（0-10，0 = 默认）',testNotification:'发送测试通知',saveAll:'保存全部配置',running:'运行中',normal:'正常',abnormal:'异常',statusRunning:'抓帧中',statusEncoding:'正在编码',statusCompleted:'已完成',statusFailed:'失败',frames:'帧',layers:'层',task:'任务',delete:'删除',modeLayer:'层',modeInterval:'时间',file:'文件',size:'大小',actionDone:'操作完成',configSaved:'配置已保存，立即生效',saving:'保存中...',saved:'已保存',deleteConfirm:'删除这个视频？',videoDeleted:'视频已删除',noDetection:'没有检测结果',checking:'检测中...',checkPassed:'检测通过',checkFailed:'检测失败',triggerLayerHelp:'每层变化抓一帧，适合 A1。',triggerIntervalHelp:'按固定间隔抓帧，AI 与延时视频共用这些帧。'},
+  en:{title:'LayerWatch',subtitle:'Home Assistant camera · AI anomaly detection · timelapse video',refresh:'Refresh',tabAI:'1. AI Analysis',tabVideo:'2. Timelapse',tabSettings:'3. Settings',aiStatus:'AI Status',reading:'Loading',noAnalysis:'No analysis yet',captureAnalyze:'Capture & Analyze',testAI:'Test AI Endpoint',latestAI:'Recent AI Results',noRecords:'No records',delayTask:'Timelapse Task',noTask:'No active task',startTask:'Start Task',captureNow:'Capture Now',stopEncode:'Stop & Encode',cleanup:'Clean Data',timelapseVideos:'Timelapse Videos',noVideos:'No videos',haConnection:'Home Assistant Connection',haHint:'Base URL, token, and entity IDs are explicitly configured. No auto-discovery.',haURL:'HA Base URL',token:'Long-Lived Access Token',cameraEntity:'Camera Entity',layerEntity:'Current Layer Entity',statusEntity:'Print Status Entity (optional, for automatic start/stop)',testHA:'Test HA Connection',aiEndpoint:'AI Endpoint',enableAnomaly:'Enable anomaly detection',baseURL:'OpenAI-compatible Base URL',model:'Model',apiKey:'API Key',maxChecks:'Max AI calls per print',triggerSettings:'Trigger Settings',triggerMode:'Trigger Mode',layerTrigger:'By layer (recommended for A1)',intervalTrigger:'By time interval',intervalSeconds:'Capture interval (seconds)',dataCleanup:'Data Cleanup',cleanupHint:'Intermediate frames are deleted after encoding. Set retention for videos and alert images.',retention:'Retention days for videos and alerts (0 = forever)',notifications:'Notifications',notificationHint:'HA persistent notifications remain enabled; Bark can be used at the same time.',enableHA:'Enable HA persistent notifications',enableBark:'Enable Bark push',barkKey:'Bark Device Key',barkURL:'Bark Server URL',barkGroup:'Notification Group',barkLevel:'Notification Level',defaultActive:'Default active',barkVolume:'Critical volume (0-10, 0 = default)',testNotification:'Send Test Notification',saveAll:'Save All Settings',running:'Running',normal:'Normal',abnormal:'Error',statusRunning:'Capturing',statusEncoding:'Encoding',statusCompleted:'Completed',statusFailed:'Failed',frames:'frames',layers:'layers',task:'task',delete:'Delete',modeLayer:'Layer',modeInterval:'Interval',file:'File',size:'Size',actionDone:'Done',configSaved:'Settings saved',saving:'Saving...',saved:'Saved',deleteConfirm:'Delete this video?',videoDeleted:'Video deleted',noDetection:'No diagnostic result',checking:'Checking...',checkPassed:'Check passed',checkFailed:'Check failed',triggerLayerHelp:'Capture one frame per layer change. Recommended for A1.',triggerIntervalHelp:'Capture at a fixed interval. AI and timelapse share the same frames.'}
+};
+const urlLang=new URLSearchParams(location.search).get('lang');let currentLang=urlLang==='en'||urlLang==='zh'?urlLang:(localStorage.getItem('layerwatch-language')||(navigator.language.toLowerCase().startsWith('zh')?'zh':'en'));
+function t(key,vars={}){let text=(messages[currentLang]&&messages[currentLang][key])||messages.zh[key]||key;for(const [k,v] of Object.entries(vars))text=text.replaceAll('{'+k+'}',v);return text}
+function applyI18n(){document.documentElement.lang=currentLang==='zh'?'zh-CN':'en';document.title=t('title');document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));$('languageSelect').value=currentLang;updateTriggerHelp()}
+function setLanguage(lang){currentLang=lang==='en'?'en':'zh';localStorage.setItem('layerwatch-language',currentLang);applyI18n();refresh()}
+function showTab(name){for(const key of ['ai','video','settings']){$('tab-'+key).classList.toggle('active',key===name);$('tabButton-'+key).classList.toggle('active',key===name)}}
+const toastEl=$('toast');let toastTimer;
+function toast(msg,bad=false){toastEl.textContent=msg;toastEl.style.background=bad?'#ffe2e2':'#e8fff5';toastEl.style.color=bad?'#5b1515':'#10251b';toastEl.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.style.display='none',4000)}
+async function request(url,opts={}){const r=await fetch(url,opts);const ct=r.headers.get('content-type')||'';const body=ct.includes('application/json')?await r.json():await r.text();if(!r.ok)throw new Error(body.error||body||('HTTP '+r.status));return body}
+function setValue(id,v){$(id).value=v??''}
+async function loadConfig(){const c=await request('/api/config');setValue('ha_baseURL',c.homeAssistant.baseURL);setValue('ha_token',c.homeAssistant.token);setValue('ha_cameraEntity',c.homeAssistant.cameraEntity);setValue('ha_layerEntity',c.homeAssistant.layerEntity);setValue('ha_statusEntity',c.homeAssistant.statusEntity);setValue('ai_baseURL',c.ai.baseURL);setValue('ai_apiKey',c.ai.apiKey);setValue('ai_model',c.ai.model);$('ai_enabled').checked=!!c.ai.enabled;setValue('ai_maxChecksPerPrint',c.ai.maxChecksPerPrint);setValue('trigger_mode',c.trigger.mode);setValue('trigger_intervalSeconds',c.trigger.intervalSeconds);setValue('cleanup_retentionDays',c.cleanup.retentionDays);$('notification_haEnabled').checked=!!c.notification.haEnabled;$('notification_barkEnabled').checked=!!c.notification.barkEnabled;setValue('notification_barkKey',c.notification.barkKey);setValue('notification_barkBaseURL',c.notification.barkBaseURL);setValue('notification_barkGroup',c.notification.barkGroup);setValue('notification_barkLevel',c.notification.barkLevel);setValue('notification_barkVolume',c.notification.barkVolume);updateTriggerHelp()}
+function configPayload(){return{homeAssistant:{baseURL:$('ha_baseURL').value,token:$('ha_token').value,cameraEntity:$('ha_cameraEntity').value,layerEntity:$('ha_layerEntity').value,statusEntity:$('ha_statusEntity').value},ai:{enabled:$('ai_enabled').checked,baseURL:$('ai_baseURL').value,apiKey:$('ai_apiKey').value,model:$('ai_model').value,maxChecksPerPrint:Number($('ai_maxChecksPerPrint').value)},trigger:{mode:$('trigger_mode').value,intervalSeconds:Number($('trigger_intervalSeconds').value)},cleanup:{retentionDays:Number($('cleanup_retentionDays').value)},notification:{haEnabled:$('notification_haEnabled').checked,barkEnabled:$('notification_barkEnabled').checked,barkKey:$('notification_barkKey').value,barkBaseURL:$('notification_barkBaseURL').value,barkGroup:$('notification_barkGroup').value,barkLevel:$('notification_barkLevel').value,barkVolume:Number($('notification_barkVolume').value)}}}
+async function saveConfig(silent=false){try{$('saveHint').textContent=t('saving');await request('/api/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(configPayload())});$('saveHint').textContent=t('saved');if(!silent)toast(t('configSaved'));return true}catch(e){$('saveHint').textContent='';toast(e.message,true);if(silent)throw e;return false}}
+function updateTriggerHelp(){const v=$('trigger_mode').value;$('triggerHelp').textContent=v==='layer'?t('triggerLayerHelp'):t('triggerIntervalHelp')}
+async function action(url){try{await request(url,{method:'POST'});toast(t('actionDone'));setTimeout(refresh,700)}catch(e){toast(e.message,true)}}
+function triggerModeLabel(mode){return mode==='layer'?t('modeLayer'):mode==='interval'?t('modeInterval'):mode}
+function videoStatus(status){return status==='success'?t('statusCompleted'):status==='failed'?t('statusFailed'):status}
+function sessionStatus(status){const key={running:'statusRunning',encoding:'statusEncoding',completed:'statusCompleted',failed:'statusFailed'}[status];return key?t(key):status}
+function sessionText(s){if(!s)return `<div class="muted">${t('noTask')}</div>`;return `<div><span class="badge">${esc(sessionStatus(s.status))}</span> <b>#${s.id}</b> <span class="muted">${esc(triggerModeLabel(s.triggerMode))}</span></div><div style="margin-top:8px">${t('frames')} ${s.frameCount} · ${t('layers')} ${s.layerCount} · AI ${s.aiChecks}</div>${s.error?`<div class="bad" style="margin-top:6px">${esc(s.error)}</div>`:''}`}
+function resultStatus(status){const labels={normal:'normal',spaghetti:'Spaghetti',clog:'Clog',object_displaced:'Object displaced',nozzle_collision:'Nozzle collision',material_buildup:'Material buildup',unknown:'Unknown'};return currentLang==='zh'?status:(labels[status]||status)}
+function checkText(c){if(!c)return `<div class="muted">${t('noAnalysis')}</div>`;return `<div><span class="pill ${c.alert?'alert':''}">${esc(resultStatus(c.status))}</span> <span class="muted">${Math.round((c.confidence||0)*100)}% · ${t('task')} #${c.sessionId}</span></div><div style="margin-top:5px">${esc(c.reason||'')}</div>`}
+async function loadStatus(){const st=await request('/api/status');$('healthBadge').textContent=st.active?t('running'):t('normal');$('healthBadge').className='badge ok';$('sessionStatusBox').innerHTML=sessionText(st.active||st.latest);$('aiSummaryBox').innerHTML=st.active?sessionText(st.active):checkText(st.latestCheck||st.latestGlobalCheck)}
+async function loadVideos(){const vs=await request('/api/videos?limit=30');if(!vs.length){$('videoList').innerHTML=`<div class="muted">${t('noVideos')}</div>`;return}$('videoList').innerHTML=`<table><thead><tr><th>${t('task')}</th><th>${t('file')}</th><th>${t('size')}</th><th></th></tr></thead><tbody>`+vs.map(v=>`<tr><td>#${v.sessionId}</td><td><a href="/api/videos/${v.id}/file" target="_blank">${esc(v.fileName)}</a><div class="muted">${v.frameCount} ${t('frames')} · ${esc(videoStatus(v.status))}</div></td><td>${(v.fileSize/1048576).toFixed(1)} MB</td><td><button class="danger" onclick="deleteVideo(${v.id})">${t('delete')}</button></td></tr>`).join('')+'</tbody></table>'}
+async function deleteVideo(id){if(!confirm(t('deleteConfirm')))return;try{await request('/api/videos/'+id,{method:'DELETE'});toast(t('videoDeleted'));await loadVideos()}catch(e){toast(e.message,true)}}
+async function loadChecks(){const cs=await request('/api/checks?limit=20');if(!cs.length){$('checkList').innerHTML=`<div class="muted">${t('noRecords')}</div>`;return}$('checkList').innerHTML=cs.map(c=>`<div class="check-item"><div><span class="pill ${c.alert?'alert':''}">${esc(resultStatus(c.status))}</span> <span class="muted">${Math.round((c.confidence||0)*100)}% · ${t('task')} #${c.sessionId}</span></div><div style="margin-top:4px">${esc(c.reason||'')}</div>${c.imageUrl?`<a href="${c.imageUrl}" target="_blank"><img src="${c.imageUrl}"></a>`:''}</div>`).join('')}
+function diagnosticName(name){if(currentLang!=='en')return name;const map={'HA API':'HA API','摄像头实体':'Camera entity','打印状态实体':'Print status entity','当前层实体':'Current layer entity','AI 配置':'AI configuration','测试图片':'Test image','AI 请求':'AI request','通知发送':'Notification send'};return map[name]||name}
+function renderDiagnostic(id,result){const box=$(id);box.classList.remove('muted');box.innerHTML=(result.checks||[]).map(c=>`<div class="${c.ok?'ok':'bad'}">${c.ok?'✓':'✕'} ${esc(diagnosticName(c.name))}: ${esc(c.message)}</div>`).join('')||`<div class="bad">${t('noDetection')}</div>`}
+async function runDiagnostic(url,id,labelKey){const box=$(id);const label=t(labelKey);box.classList.add('muted');box.textContent=label+' '+t('checking');try{await saveConfig(true);const result=await request(url,{method:'POST'});renderDiagnostic(id,result);toast(result.ok?(label+' '+t('checkPassed')):(label+' '+t('checkFailed')),!result.ok)}catch(e){box.classList.remove('muted');box.innerHTML=`<div class="bad">✕ ${esc(e.message)}</div>`;toast(e.message,true)}}
+function testHA(){return runDiagnostic('/api/test/ha','haTestResult','testHA')}
+function testAI(){return runDiagnostic('/api/test/ai','aiTestResult','testAI')}
+function testNotification(){return runDiagnostic('/api/test/notification','notificationTestResult','testNotification')}
+async function refresh(){try{await Promise.all([loadConfig(),loadStatus(),loadVideos(),loadChecks()])}catch(e){$('healthBadge').textContent=t('abnormal');$('healthBadge').className='badge bad';toast(e.message,true)}}
+applyI18n();refresh();setInterval(()=>{loadStatus();loadVideos();loadChecks()},8000);
+</script>
+</body>
+</html>

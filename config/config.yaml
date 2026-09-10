@@ -1,0 +1,31 @@
+# LayerWatch 配置
+# HA 地址、Token、实体均由用户显式指定，不做自动发现。
+homeAssistant:
+  baseURL: "http://homeassistant.local:8123"
+  token: ""
+  cameraEntity: "camera.bambu_lab_a1"
+  layerEntity: "sensor.bambu_lab_a1_current_layer"
+  statusEntity: "sensor.bambu_lab_a1_print_status"
+
+ai:
+  enabled: true
+  baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  apiKey: ""
+  model: "qwen3-vl-flash"
+  maxChecksPerPrint: 50
+
+trigger:
+  mode: "layer" # layer | interval
+  intervalSeconds: 10
+
+cleanup:
+  retentionDays: 7
+
+notification:
+  haEnabled: true
+  barkEnabled: false
+  barkKey: ""
+  barkBaseURL: "https://api.day.app"
+  barkGroup: "LayerWatch"
+  barkLevel: ""
+  barkVolume: 0

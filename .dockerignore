@@ -1,0 +1,7 @@
+.git
+data
+server
+*.log
+dist
+.codebase-memory
+img
