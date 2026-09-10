@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
@@ -86,3 +86,58 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
+
+  release:
+    name: GitHub Release
+    needs:
+      - test
+      - docker
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache: true
+
+      - name: Build release packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME}"
+          rm -rf release
+          mkdir -p release
+          for target in arm64 armv7; do
+            if [ "$target" = "arm64" ]; then
+              export GOARCH=arm64
+              export GOARM=""
+              export ARCH_LABEL="arm64"
+            else
+              export GOARCH=arm
+              export GOARM=7
+              export ARCH_LABEL="armv7"
+            fi
+            mkdir -p "package/config" "package/img"
+            CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o package/layerwatch ./cmd/server
+            cp config/config.example.yaml package/config/config.yaml
+            cp README.md README.en.md package/
+            cp web/layerwatch.svg package/icon.svg
+            cp web/layerwatch-512.png package/icon.png
+            cp img/ai-analysis.png img/timelapse.png img/settings.png package/img/
+            tar -C package -czf "release/layerwatch-${VERSION}-linux-${ARCH_LABEL}.tar.gz" .
+            rm -rf package
+          done
+          cd release
+          sha256sum *.tar.gz > checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release/*.tar.gz
+            release/checksums.txt
