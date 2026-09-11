@@ -95,7 +95,7 @@ func Default() Config {
 			Enabled:            true,
 			BaseURL:            "https://dashscope.aliyuncs.com/compatible-mode/v1",
 			Model:              "qwen3-vl-flash",
-			MaxImageWidth:      1280,
+			MaxImageWidth:      640,
 			ImageSource:        ImageSourceBase64,
 			MaxChecksPerPrint:  50,
 			MinIntervalSeconds: 30,

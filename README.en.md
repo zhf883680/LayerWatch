@@ -50,7 +50,7 @@ ai:
   baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   apiKey: "Vision model API key"
   model: "qwen3-vl-flash"
-  maxImageWidth: 1280 # downscale frames before upload, 0 = no compression
+  maxImageWidth: 640 # downscale frames before upload, 0 = no compression
   imageSource: "base64" # base64 | temp (DashScope temporary file URL, smaller request body)
   maxChecksPerPrint: 50
   minIntervalSeconds: 30
@@ -237,7 +237,7 @@ Configurable token knobs:
 
 | Setting | Effect |
 | --- | --- |
-| `maxImageWidth` | Downscale frames before upload (default 1280, 640 recommended, `0` = no compression) |
+| `maxImageWidth` | Downscale frames before upload (default 640, `0` = no compression) |
 | `imageSource: temp` | Upload frames to the DashScope temporary OSS and send `oss://` URLs instead of base64 (identical frames are cached by SHA-256; temp URLs live 48h) |
 | `maxChecksPerPrint` / `minIntervalSeconds` | Cap total calls per task and the minimum gap between calls |
 

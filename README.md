@@ -52,7 +52,7 @@ ai:
   baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   apiKey: "视觉模型 API Key"
   model: "qwen3-vl-flash"
-  maxImageWidth: 1280 # 发给 AI 前把帧缩到该宽度，0 = 不压缩；缩图最省 token
+  maxImageWidth: 640 # 发给 AI 前把帧缩到该宽度，0 = 不压缩；缩图最省 token
   imageSource: "base64" # base64 | temp（阿里云百炼临时文件 URL，请求体更小）
   maxChecksPerPrint: 50 # 每个任务最多分析次数，0 = 不限制
   minIntervalSeconds: 30 # 两次 AI 分析的最小间隔，0 = 不限制
@@ -239,7 +239,7 @@ GET    /api/health?deep=1
 
 | 配置 | 作用 |
 | --- | --- |
-| `maxImageWidth` | 发送前把帧缩到该宽度（默认 1280，推荐 640，`0` = 不压缩）；缩图是最稳定的省 token 手段 |
+| `maxImageWidth` | 发送前把帧缩到该宽度（默认 640，`0` = 不压缩）；缩图是最稳定的省 token 手段 |
 | `imageSource: temp` | 先把图传到阿里云百炼临时 OSS，再把 `oss://` URL 发给模型，请求体从几百 KB 降到几十字节（同一帧按内容 sha256 缓存，不重复上传；临时 URL 48 小时有效，仅适合个人/测试） |
 | `maxChecksPerPrint` / `minIntervalSeconds` | 限制单任务总次数与最小间隔，避免层号快速变化时连打 AI |
 

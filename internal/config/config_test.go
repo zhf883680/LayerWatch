@@ -59,8 +59,8 @@ func TestNormalizeMinInterval(t *testing.T) {
 
 func TestNormalizeTokenSavingDefaults(t *testing.T) {
 	cfg := Default()
-	if cfg.AI.MaxImageWidth != 1280 {
-		t.Fatalf("默认缩图宽度应为 1280，得到 %d", cfg.AI.MaxImageWidth)
+	if cfg.AI.MaxImageWidth != 640 {
+		t.Fatalf("默认缩图宽度应为 640，得到 %d", cfg.AI.MaxImageWidth)
 	}
 	if cfg.AI.ImageSource != ImageSourceBase64 {
 		t.Fatalf("默认图片传输应为 base64，得到 %q", cfg.AI.ImageSource)
@@ -72,7 +72,7 @@ func TestNormalizeTokenSavingOverrides(t *testing.T) {
 	cfg.AI.MaxImageWidth = -1
 	cfg.AI.ImageSource = "TEMP"
 	cfg.Normalize()
-	if cfg.AI.MaxImageWidth != 1280 {
+	if cfg.AI.MaxImageWidth != 640 {
 		t.Fatalf("负数应回落到默认宽度，得到 %d", cfg.AI.MaxImageWidth)
 	}
 	if cfg.AI.ImageSource != ImageSourceTemp {
