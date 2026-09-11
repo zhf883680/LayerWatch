@@ -52,8 +52,10 @@ ai:
   baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   apiKey: "视觉模型 API Key"
   model: "qwen3-vl-flash"
-  maxChecksPerPrint: 50
-  minIntervalSeconds: 30
+  maxImageWidth: 1280 # 发给 AI 前把帧缩到该宽度，0 = 不压缩；缩图最省 token
+  imageSource: "base64" # base64 | temp（阿里云百炼临时文件 URL，请求体更小）
+  maxChecksPerPrint: 50 # 每个任务最多分析次数，0 = 不限制
+  minIntervalSeconds: 30 # 两次 AI 分析的最小间隔，0 = 不限制
 
 trigger:
   mode: "layer" # layer | interval
@@ -212,7 +214,7 @@ GET    /api/health?deep=1
 
 ## AI 判断与告警
 
-每次抓帧后，服务取最近 5 帧一起分析。以下情况会向已启用的 HA/Bark 渠道发送通知：
+每次抓帧后，服务取最近 3 帧一起分析。以下情况会向已启用的 HA/Bark 渠道发送通知：
 
 - AI 判断为异常；
 - 置信度不低于 0.8；
@@ -222,6 +224,30 @@ GET    /api/health?deep=1
 每个打印任务最多调用 AI `maxChecksPerPrint` 次，设为 `0` 表示不限制。
 
 `minIntervalSeconds` 是两次 AI 分析之间的最小间隔（默认 30 秒，`0` = 不限制）：层号变化很快时，帧照常抓取，但不会连续打 AI，省钱也避免刷屏。
+
+### 省 token
+
+任务一开始就持续分析，不提供按任务开关（`analyzeFrames`、`detail`、`disableThinking` 也已写死，不再可配）：
+
+| 固定行为 | 说明 |
+| --- | --- |
+| 每次 3 帧 | 取最近 3 帧一起分析，帧数直接决定图片 token |
+| `detail: auto` | 图片细节交给模型自取，兼顾小瑕疵识别与 token |
+| 默认关闭思考模式 | 仅对阿里云端点生效，避免又慢又计费的 thinking token |
+
+可配置的省 token 旋钮：
+
+| 配置 | 作用 |
+| --- | --- |
+| `maxImageWidth` | 发送前把帧缩到该宽度（默认 1280，推荐 640，`0` = 不压缩）；缩图是最稳定的省 token 手段 |
+| `imageSource: temp` | 先把图传到阿里云百炼临时 OSS，再把 `oss://` URL 发给模型，请求体从几百 KB 降到几十字节（同一帧按内容 sha256 缓存，不重复上传；临时 URL 48 小时有效，仅适合个人/测试） |
+| `maxChecksPerPrint` / `minIntervalSeconds` | 限制单任务总次数与最小间隔，避免层号快速变化时连打 AI |
+
+日志里会打印每次调用的 token 用量，便于核对缓存命中：
+
+```text
+[ai] token 用量: 输入=1736 输出=56 缓存命中=512
+```
 
 
 ## AI 费用估算

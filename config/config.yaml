@@ -12,7 +12,9 @@ ai:
   baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   apiKey: ""
   model: "qwen3-vl-flash"
-  maxChecksPerPrint: 50
+  maxImageWidth: 1280 # 发给 AI 前把帧缩到该宽度，0 = 不压缩；缩图最省 token
+  imageSource: "base64" # base64 | temp（阿里云百炼临时文件 URL，请求体更小）
+  maxChecksPerPrint: 50 # 每个任务最多分析次数，0 = 不限制
   minIntervalSeconds: 30 # 两次 AI 分析的最小间隔，0 = 不限制
 
 trigger:

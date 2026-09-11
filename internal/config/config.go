@@ -27,14 +27,25 @@ type HomeAssistant struct {
 }
 
 type AI struct {
-	Enabled           bool   `yaml:"enabled" json:"enabled"`
-	BaseURL           string `yaml:"baseURL" json:"baseURL"`
-	APIKey            string `yaml:"apiKey" json:"apiKey"`
-	Model             string `yaml:"model" json:"model"`
+	Enabled bool   `yaml:"enabled" json:"enabled"`
+	BaseURL string `yaml:"baseURL" json:"baseURL"`
+	APIKey  string `yaml:"apiKey" json:"apiKey"`
+	Model   string `yaml:"model" json:"model"`
+	// MaxImageWidth 发给 AI 前把帧缩到该宽度（0=不压缩）。缩图是最稳定的省 token 手段。
+	MaxImageWidth int `yaml:"maxImageWidth" json:"maxImageWidth"`
+	// ImageSource 图片传输方式：base64（默认）| temp（阿里云百炼临时文件 URL，省请求体与带宽）。
+	ImageSource       string `yaml:"imageSource" json:"imageSource"`
 	MaxChecksPerPrint int    `yaml:"maxChecksPerPrint" json:"maxChecksPerPrint"`
 	// MinIntervalSeconds 是两次 AI 分析之间的最小间隔，避免层号快速变化时连打 AI。0 表示不限制。
 	MinIntervalSeconds int `yaml:"minIntervalSeconds" json:"minIntervalSeconds"`
 }
+
+const (
+	// ImageSourceBase64 把图片编码成 data URL 塞进请求体。
+	ImageSourceBase64 = "base64"
+	// ImageSourceTemp 先传到阿里云百炼临时 OSS，再把 oss:// URL 发给模型。
+	ImageSourceTemp = "temp"
+)
 
 type Trigger struct {
 	Mode            string `yaml:"mode" json:"mode"`
@@ -84,6 +95,8 @@ func Default() Config {
 			Enabled:            true,
 			BaseURL:            "https://dashscope.aliyuncs.com/compatible-mode/v1",
 			Model:              "qwen3-vl-flash",
+			MaxImageWidth:      1280,
+			ImageSource:        ImageSourceBase64,
 			MaxChecksPerPrint:  50,
 			MinIntervalSeconds: 30,
 		},
@@ -127,6 +140,17 @@ func (c *Config) Normalize() {
 	}
 	if c.AI.Model == "" {
 		c.AI.Model = d.AI.Model
+	}
+	if c.AI.MaxImageWidth < 0 {
+		c.AI.MaxImageWidth = d.AI.MaxImageWidth
+	}
+	if c.AI.MaxImageWidth > 0 && c.AI.MaxImageWidth < 128 {
+		// 太小的图模型看不清细节，反而更容易误判，统一抬到 128。
+		c.AI.MaxImageWidth = 128
+	}
+	c.AI.ImageSource = strings.ToLower(strings.TrimSpace(c.AI.ImageSource))
+	if c.AI.ImageSource != ImageSourceTemp {
+		c.AI.ImageSource = ImageSourceBase64
 	}
 	if c.AI.MaxChecksPerPrint < 0 {
 		c.AI.MaxChecksPerPrint = d.AI.MaxChecksPerPrint

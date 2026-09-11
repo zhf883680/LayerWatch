@@ -22,7 +22,7 @@ import (
 const (
 	pollInterval     = 2 * time.Second
 	cleanupInterval  = 6 * time.Hour
-	analyzeFrames    = 5
+	analyzeFrames    = 3
 	minAIConfidence  = 0.8
 	failureStreak    = 3
 	alertCooldown    = 5 * time.Minute

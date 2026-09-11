@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zhf883680/LayerWatch/internal/config"
@@ -19,9 +21,17 @@ import (
 var ErrNotConfigured = errors.New("AI 未配置或未启用")
 var jsonFence = regexp.MustCompile("(?s)```(?:json)?\\s*|\\s*```")
 
+// imageDetail 是固定的图片细节档位。auto 让模型自己按需取细节，
+// 相比 low 保留识别小瑕疵的能力，相比 high/original 又不至于 token 失控。
+const imageDetail = "auto"
+
 type Service struct {
 	cfg    *config.Store
 	client *http.Client
+
+	upMu     sync.Mutex
+	uploader *tempUploader
+	upKey    string
 }
 
 func New(cfg *config.Store) *Service {
@@ -61,9 +71,20 @@ type chatResponse struct {
 			Content string `json:"content"`
 		} `json:"message"`
 	} `json:"choices"`
+	Usage *usageInfo `json:"usage,omitempty"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
+}
+
+// usageInfo 一次调用的 token 用量，用于观察图片 token 与上下文缓存命中（缓存命中输入单价通常只有 1/10）。
+type usageInfo struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+	PromptDetails    struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
 }
 
 func (s *Service) Analyze(ctx context.Context, images [][]byte) (*Result, error) {
@@ -74,16 +95,30 @@ func (s *Service) Analyze(ctx context.Context, images [][]byte) (*Result, error)
 		return nil, errors.New("没有可分析的图片")
 	}
 	cfg := s.cfg.Get().AI
+	uploader := s.tempUploader(cfg)
+	useOSS := false
 	parts := []contentPart{{Type: "text", Text: userPrompt}}
 	for _, img := range images {
 		if len(img) == 0 {
 			continue
 		}
-		scaled, err := scaleMaxWidth(img, 1280)
-		if err != nil {
-			scaled = img
+		// 缩图是省 token 最稳定的一招：视觉模型按像素折算 token，先缩再发。
+		if cfg.MaxImageWidth > 0 {
+			if scaled, err := scaleMaxWidth(img, cfg.MaxImageWidth); err == nil {
+				img = scaled
+			}
 		}
-		parts = append(parts, contentPart{Type: "image_url", ImageURL: &imageURL{URL: dataURL(scaled), Detail: "auto"}})
+		url := dataURL(img)
+		if uploader != nil {
+			// 上传失败就回退 base64，宁可多花点 token 也不能丢帧。
+			if u, err := uploader.upload(img); err == nil {
+				url = u
+				useOSS = true
+			} else {
+				log.Printf("[ai] 上传临时文件失败，回退 base64: %v", err)
+			}
+		}
+		parts = append(parts, contentPart{Type: "image_url", ImageURL: &imageURL{URL: url, Detail: imageDetail}})
 	}
 	body := chatRequest{
 		Model: cfg.Model,
@@ -92,6 +127,7 @@ func (s *Service) Analyze(ctx context.Context, images [][]byte) (*Result, error)
 			{Role: "user", Content: parts},
 		},
 	}
+	// qwen3 等千问系列默认开思考模式（慢且 thinking token 计费），对阿里云固定关掉。
 	if isDashScope(cfg.BaseURL) {
 		off := false
 		body.EnableThinking = &off
@@ -108,6 +144,10 @@ func (s *Service) Analyze(ctx context.Context, images [][]byte) (*Result, error)
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "layerwatch-monitor/1.0")
+	if useOSS {
+		// 用 oss:// 临时文件 URL 时必须带此头，否则百炼无法解析。
+		req.Header.Set("X-DashScope-OssResourceResolve", "enable")
+	}
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("AI 请求失败: %w", err)
@@ -130,7 +170,27 @@ func (s *Service) Analyze(ctx context.Context, images [][]byte) (*Result, error)
 	if len(parsed.Choices) == 0 || strings.TrimSpace(parsed.Choices[0].Message.Content) == "" {
 		return nil, errors.New("AI 返回内容为空")
 	}
+	if u := parsed.Usage; u != nil {
+		log.Printf("[ai] token 用量: 输入=%d 输出=%d 缓存命中=%d", u.PromptTokens, u.CompletionTokens, u.PromptDetails.CachedTokens)
+	}
 	return parseResult(parsed.Choices[0].Message.Content)
+}
+
+// tempUploader 仅在 imageSource=temp 且端点支持百炼临时文件时创建；
+// baseURL/apiKey/model 变了就重建，避免拿旧模型的上传通道发图。
+func (s *Service) tempUploader(cfg config.AI) *tempUploader {
+	if cfg.ImageSource != config.ImageSourceTemp || !isDashScope(cfg.BaseURL) {
+		return nil
+	}
+	key := cfg.BaseURL + "|" + cfg.APIKey + "|" + cfg.Model
+	s.upMu.Lock()
+	defer s.upMu.Unlock()
+	if s.uploader != nil && s.upKey == key {
+		return s.uploader
+	}
+	s.uploader = newTempUploader(cfg.BaseURL, cfg.APIKey, cfg.Model, s.client)
+	s.upKey = key
+	return s.uploader
 }
 
 const systemPrompt = `你是 3D 打印监控助手。你会收到同一路摄像头、同一场打印的连续截图（从旧到新）。

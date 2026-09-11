@@ -50,6 +50,8 @@ ai:
   baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   apiKey: "Vision model API key"
   model: "qwen3-vl-flash"
+  maxImageWidth: 1280 # downscale frames before upload, 0 = no compression
+  imageSource: "base64" # base64 | temp (DashScope temporary file URL, smaller request body)
   maxChecksPerPrint: 50
   minIntervalSeconds: 30
 
@@ -210,7 +212,7 @@ The legacy LapseCam endpoints `/api/quick/start`, `/api/quick/stop`, `/api/quick
 
 ## AI Detection and Alerts
 
-After each capture, LayerWatch analyzes the five most recent frames together. A notification is sent to every enabled HA/Bark channel when:
+After each capture, LayerWatch analyzes the three most recent frames together. A notification is sent to every enabled HA/Bark channel when:
 
 - AI classifies the result as abnormal;
 - confidence is at least 0.8;
@@ -220,6 +222,30 @@ After each capture, LayerWatch analyzes the five most recent frames together. A 
 Each print task can make at most `maxChecksPerPrint` AI calls. Set it to `0` for unlimited calls.
 
 `minIntervalSeconds` is the minimum gap between two AI analyses (default 30, `0` = unlimited): when layers change quickly, frames are still captured but AI is not called back-to-back.
+
+### Saving tokens
+
+Analysis runs for the whole task; there is no per-task toggle (`analyzeFrames`, `detail`, and `disableThinking` are fixed too, no longer configurable):
+
+| Fixed behavior | Why |
+| --- | --- |
+| Three frames per call | The three most recent frames are analyzed together; frame count drives image tokens |
+| `detail: auto` | The model picks its own detail level, balancing small-defect detection against tokens |
+| Thinking mode off by default | DashScope endpoints only; avoids slow, billed thinking tokens |
+
+Configurable token knobs:
+
+| Setting | Effect |
+| --- | --- |
+| `maxImageWidth` | Downscale frames before upload (default 1280, 640 recommended, `0` = no compression) |
+| `imageSource: temp` | Upload frames to the DashScope temporary OSS and send `oss://` URLs instead of base64 (identical frames are cached by SHA-256; temp URLs live 48h) |
+| `maxChecksPerPrint` / `minIntervalSeconds` | Cap total calls per task and the minimum gap between calls |
+
+Each call logs its token usage so you can verify cache hits:
+
+```text
+[ai] token 用量: 输入=1736 输出=56 缓存命中=512
+```
 
 
 ## AI Cost Estimate
