@@ -36,6 +36,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/test/ai", s.testAI)
 	mux.HandleFunc("POST /api/test/notification", s.testNotification)
 	mux.HandleFunc("POST /api/test/light", s.testLight)
+	mux.HandleFunc("POST /api/test/light-capture", s.startLightTest)
+	mux.HandleFunc("GET /api/test/light-capture", s.lightTestStatus)
+	mux.HandleFunc("DELETE /api/test/light-capture", s.cancelLightTest)
+	mux.HandleFunc("GET /api/test/light-capture/image/{run}/{name}", s.lightTestImage)
 
 	mux.HandleFunc("POST /api/session/start", s.start)
 	mux.HandleFunc("POST /api/session/stop", s.stop)
@@ -58,6 +62,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/cleanup", s.cleanup)
 
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(web.Assets))))
+	mux.HandleFunc("GET /light-test", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = io.WriteString(w, web.LightTestHTML)
+	})
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = io.WriteString(w, web.IndexHTML)
@@ -125,6 +133,62 @@ func (s *Server) testLight(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	writeJSON(w, http.StatusOK, s.app.TestLight(ctx))
+}
+
+// startLightTest 按网页上的设定启动一轮照明测试，马上返回进度，结果由前端轮询。
+func (s *Server) startLightTest(w http.ResponseWriter, r *http.Request) {
+	opts := app.LightTestOptions{
+		DelayMs:      queryInt(r, "delayMs", -1),
+		IntervalMs:   queryInt(r, "intervalMs", 0),
+		TimeoutMs:    queryInt(r, "timeoutMs", 0),
+		LeaveLightOn: r.URL.Query().Get("leaveLightOn") == "1",
+	}
+	result, err := s.app.StartLightTest(opts)
+	if err != nil {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusAccepted, result)
+}
+
+func (s *Server) lightTestStatus(w http.ResponseWriter, _ *http.Request) {
+	result := s.app.LightTestStatus()
+	if result == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "idle"})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) cancelLightTest(w http.ResponseWriter, _ *http.Request) {
+	if !s.app.CancelLightTest() {
+		writeError(w, http.StatusNotFound, "当前没有进行中的照明测试")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"message": "已取消照明测试"})
+}
+
+func (s *Server) lightTestImage(w http.ResponseWriter, r *http.Request) {
+	path, err := s.app.LightTestImagePath(r.PathValue("run"), r.PathValue("name"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	http.ServeFile(w, r, path)
+}
+
+// queryInt 读取整数查询参数，缺省或格式不对时用 fallback。
+func queryInt(r *http.Request, key string, fallback int) int {
+	value := strings.TrimSpace(r.URL.Query().Get(key))
+	if value == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return n
 }
 
 func (s *Server) start(w http.ResponseWriter, r *http.Request) {

@@ -184,6 +184,17 @@ Behavior:
 - If the light was already on, LayerWatch does not turn it off when the task ends.
 - Lighting failures are logged but do not block camera capture.
 
+### Lighting test page
+
+**Settings → Lighting Control → Lighting Test** opens `http://<host>:19091/light-test`. It measures how long after turning the light on the camera actually returns a lit frame, so you can pick a safe `delaySeconds`:
+
+- the "configured delay" field defaults to the current `lighting.delaySeconds`;
+- one click runs a round: light off for a dark baseline → light on → first capture after the configured delay → repeated captures at the interval until the frame is lit or the timeout hits;
+- the result shows the measured latency (turn-on → first lit frame), whether the configured delay was enough, the brightness curve, and before/after images;
+- change the timing and click again to compare settings. Test images are kept in `data/light-tests/` (latest 8 rounds).
+
+A frame counts as lit when its average brightness exceeds the dark baseline by a threshold (25% of the baseline, at least 4 and at most 15 brightness points). The light is restored after the test by default; tick "keep the light on after the test" to test during a print without losing the chamber light.
+
 ## API
 
 ```text
@@ -194,6 +205,10 @@ POST   /api/test/ha
 POST   /api/test/ai
 POST   /api/test/notification
 POST   /api/test/light
+POST   /api/test/light-capture?delayMs=300&intervalMs=300&timeoutMs=20000&leaveLightOn=0
+GET    /api/test/light-capture
+DELETE /api/test/light-capture
+GET    /api/test/light-capture/image/{run}/{name}
 POST   /api/session/start
 POST   /api/session/stop
 POST   /api/session/layer?layer=N

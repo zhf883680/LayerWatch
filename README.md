@@ -186,6 +186,17 @@ lighting:
 - 如果照明原本已经打开，LayerWatch 不会在任务结束时把它关闭。
 - 照明控制失败不会阻止摄像头抓图，只会记录错误日志。
 
+### 照明测试页
+
+“设定 → 照明控制 → 照明测试”会打开 `http://<主机>:19091/light-test`。这个页面用来实测开灯以后多久才能截到变亮的画面，帮你确定 `delaySeconds` 该设多少：
+
+- 页面上的“设定延迟”默认取当前 `lighting.delaySeconds`；
+- 点一次按钮跑一轮：关灯取暗底 → 开灯 → 按设定延迟抓第一张 → 之后按间隔连续抓图，直到画面变亮或超时；
+- 结果显示实测延迟（开灯 → 首张变亮）、设定延迟是否够用、亮度曲线和截图对比；
+- 改掉时间再点一次，就能对比不同设定，测试用的截图保存在 `data/light-tests/`（只保留最近 8 轮）。
+
+判定“变亮”的方式是画面平均亮度超过暗底加一个阈值（暗底亮度的 25%，最少 4、最多 15 个亮度点）。测试默认在结束后把灯关回原状；勾选“测试结束后保持亮灯”可以在打印过程中测试而不影响补光。
+
 ## API
 
 ```text
@@ -196,6 +207,10 @@ POST   /api/test/ha
 POST   /api/test/ai
 POST   /api/test/notification
 POST   /api/test/light
+POST   /api/test/light-capture?delayMs=300&intervalMs=300&timeoutMs=20000&leaveLightOn=0
+GET    /api/test/light-capture
+DELETE /api/test/light-capture
+GET    /api/test/light-capture/image/{run}/{name}
 POST   /api/session/start
 POST   /api/session/stop
 POST   /api/session/layer?layer=N

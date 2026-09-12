@@ -75,6 +75,10 @@ type Service struct {
 	lightMu       sync.Mutex
 	lightSessions map[int64]bool
 
+	lightTestMu   sync.Mutex
+	lightTest     *lightTestRun
+	lightTestDirs map[string]string
+
 	statusMu   sync.Mutex
 	lastStatus string
 }

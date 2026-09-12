@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>照明测试 · LayerWatch</title>
+<link rel="icon" type="image/png" href="/assets/favicon-32.png">
+<link rel="apple-touch-icon" href="/assets/layerwatch-192.png">
+<style>
+:root{--bg:#0b1020;--card:#141b2d;--line:#29334a;--text:#edf2ff;--muted:#94a3b8;--accent:#56c596;--danger:#ff6b6b;--warn:#f0b429}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#09101f,#11182b 45%,#0b1020);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:26px 18px 50px}
+.brand{display:flex;align-items:center;gap:14px}.brand img{width:56px;height:56px;border-radius:15px;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+header{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:18px}h1{margin:0;font-size:26px}header p{margin:4px 0 0;color:var(--muted)}.header-actions{display:flex;gap:8px;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.card{grid-column:span 12;background:rgba(20,27,45,.92);border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:0 12px 35px rgba(0,0,0,.18)}
+.span4{grid-column:span 4}.span8{grid-column:span 8}
+h2{font-size:16px;margin:0 0 14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.hint{color:var(--muted);font-size:12px;margin:-6px 0 14px}label{display:block;color:var(--muted);font-size:12px;margin:10px 0 5px}
+input,select{width:100%;padding:10px 11px;background:#0d1424;border:1px solid var(--line);border-radius:9px;color:var(--text);outline:none}
+input:focus,select:focus{border-color:var(--accent)}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button,a.btn{border:0;border-radius:9px;padding:10px 14px;background:#26324b;color:var(--text);cursor:pointer;font-weight:600;text-decoration:none;display:inline-block}
+button:hover,a.btn:hover{filter:brightness(1.12)}button:disabled{opacity:.45;cursor:not-allowed}button:disabled:hover{filter:none}
+button.primary{background:var(--accent);color:#06150f}button.danger{background:#50263a;color:#ffd7e0}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px;align-items:center}
+.badge{display:inline-flex;padding:3px 8px;border-radius:999px;background:#25314a;color:var(--muted);font-size:12px}
+.badge.ok{background:#1d3d2f;color:var(--accent)}.badge.bad{background:#5b2230;color:#ffd5dc}
+.ok{color:var(--accent)}.bad{color:var(--danger)}.muted{color:var(--muted)}.warn{color:var(--warn)}
+.metric{font-size:34px;font-weight:700;letter-spacing:.5px}.metric small{font-size:15px;color:var(--muted);font-weight:500;margin-left:6px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:16px}
+.kv div{background:#0d1424;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px}
+.kv span{display:block;color:var(--muted);font-size:12px;margin-bottom:3px}
+.advice{margin-top:14px;border-left:3px solid var(--accent);background:#0d1424;padding:10px 12px;border-radius:8px;font-size:13px}
+.advice.bad{border-left-color:var(--danger)}
+.list-scroll{max-height:min(60vh,560px);overflow:auto;padding-right:4px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--muted);font-size:12px;font-weight:500;position:sticky;top:0;background:var(--card);z-index:1}
+td img{width:132px;border-radius:6px;display:block;background:#000}
+.bar{position:relative;height:9px;border-radius:999px;background:#1b2438;overflow:hidden;min-width:80px}
+.bar i{position:absolute;inset:0 auto 0 0;background:#3f5b86;border-radius:999px}
+.bar i.bright{background:var(--accent)}.bar i.base{background:#4b5563}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.shot{background:#0d1424;border:1px solid var(--line);border-radius:12px;padding:10px}
+.shot img{width:100%;border-radius:8px;display:block;background:#000}
+.shot p{margin:8px 0 0;font-size:12px;color:var(--muted)}
+#toast{position:fixed;right:18px;bottom:18px;background:#e8fff5;color:#10251b;padding:11px 16px;border-radius:10px;display:none;max-width:380px;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+@media(max-width:800px){.span4,.span8{grid-column:span 12}.row{grid-template-columns:1fr}header{align-items:start;flex-direction:column}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="brand">
+    <img src="/assets/layerwatch-192.png" alt="LayerWatch">
+    <div><h1 data-i18n="pageTitle">照明测试</h1><p data-i18n="pageSubtitle">点一次按钮：关灯取暗底 → 按设定点亮 → 连续截图，测出开灯后多久能截到变亮的画面</p></div>
+  </div>
+  <div class="header-actions">
+    <select id="languageSelect" onchange="setLanguage(this.value)" style="width:auto">
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+    </select>
+    <a class="btn" href="/" data-i18n="backHome">返回主页面</a>
+  </div>
+</header>
+
+<div class="grid">
+  <section class="card span4">
+    <h2 data-i18n="params">测试参数</h2>
+    <p class="hint" data-i18n="paramsHint">每点一次按钮跑一轮独立测试，改掉时间再点一次就能对比不同设定的效果。</p>
+    <label data-i18n="delayLabel">设定延迟（毫秒）：开灯后先等多久再抓第一张</label>
+    <input id="delayMs" type="number" min="0" max="60000" step="100">
+    <div class="row">
+      <div><label data-i18n="intervalLabel">连续抓图间隔（毫秒）</label><input id="intervalMs" type="number" min="100" max="5000" step="100" value="300"></div>
+      <div><label data-i18n="timeoutLabel">最长等待（毫秒）</label><input id="timeoutMs" type="number" min="1000" max="120000" step="1000" value="20000"></div>
+    </div>
+    <label style="margin-top:12px"><input id="leaveLightOn" type="checkbox" style="width:auto;margin-right:8px"><span data-i18n="leaveOn">测试结束后保持亮灯（打印中建议勾选）</span></label>
+    <div class="actions">
+      <button id="btnRun" class="primary" onclick="startTest()" data-i18n="runTest">点亮灯并截图</button>
+      <button id="btnCancel" class="danger" onclick="cancelTest()" disabled data-i18n="cancel">取消</button>
+    </div>
+    <p id="entityHint" class="hint" style="margin-top:14px"></p>
+  </section>
+
+  <section class="card span8">
+    <h2><span data-i18n="result">测试结果</span><span id="statusBadge" class="badge" data-i18n="statusIdle">未测试</span></h2>
+    <div id="summary"><div class="muted" data-i18n="noResult">还没有测试记录，点左边的按钮开始。</div></div>
+    <div id="advice"></div>
+  </section>
+
+  <section class="card" id="chartCard" hidden>
+    <h2><span data-i18n="chartTitle">亮度变化</span><span class="muted" id="chartHint"></span></h2>
+    <div class="list-scroll"><table><thead><tr>
+      <th data-i18n="colFrame">帧</th><th data-i18n="colTime">开灯后</th><th data-i18n="colBrightness">亮度</th>
+      <th data-i18n="colSnapshot">抓图耗时</th><th data-i18n="colImage">截图</th>
+    </tr></thead><tbody id="frameRows"></tbody></table></div>
+  </section>
+
+  <section class="card" id="shotsCard" hidden>
+    <h2 data-i18n="shotsTitle">截图对比</h2>
+    <div class="shots" id="shots"></div>
+  </section>
+</div>
+</main>
+<div id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+const messages={
+  zh:{pageTitle:'照明测试',pageSubtitle:'点一次按钮：关灯取暗底 → 按设定点亮 → 连续截图，测出开灯后多久能截到变亮的画面',backHome:'返回主页面',params:'测试参数',paramsHint:'每点一次按钮跑一轮独立测试，改掉时间再点一次就能对比不同设定的效果。',delayLabel:'设定延迟（毫秒）：开灯后先等多久再抓第一张',intervalLabel:'连续抓图间隔（毫秒）',timeoutLabel:'最长等待（毫秒）',leaveOn:'测试结束后保持亮灯（打印中建议勾选）',runTest:'点亮灯并截图',cancel:'取消',result:'测试结果',statusIdle:'未测试',noResult:'还没有测试记录，点左边的按钮开始。',chartTitle:'亮度变化',colFrame:'帧',colTime:'开灯后',colBrightness:'亮度',colSnapshot:'抓图耗时',colImage:'截图',shotsTitle:'截图对比',
+    statusRunning:'进行中',statusDone:'已完成',statusFailed:'失败',statusCanceled:'已取消',
+    detectTime:'开灯 → 首张变亮',notDetected:'未检测到变亮',sufficient:'✓ 足够',insufficient:'✕ 不够',unknown:'—',
+    kDelay:'设定延迟',kBaseline:'暗底亮度 → 门槛',kMax:'画面最高亮度',kTurnOn:'开灯调用耗时',kAttempts:'开灯后抓图次数',kSnapshot:'平均/最慢抓图',kDuration:'本轮测试耗时',kState:'灯状态',kFrames:'总帧数',
+    baselineFrame:'基线',afterMs:'{ms} ms',detected:'测到变亮',dark:'仍偏暗',avg:'均',max:'最慢',errors:'抓图失败 {n} 次',
+    shotBaseline:'暗底（开灯前）',shotBright:'第一张变亮画面',shotLast:'最后一张',
+    starting:'正在启动测试...',loadConfigFailed:'读取配置失败：{msg}',startFailed:'启动失败：{msg}',canceled:'已发送取消',cancelFailed:'取消失败：{msg}',noCancel:'当前没有进行中的测试',
+    advice:'结论',restoreFailed:'测试结束恢复照明失败：{msg}',warning:'提示',entityLabel:'照明实体',
+    stateOff:'关',stateOn:'亮'},
+  en:{pageTitle:'Lighting Test',pageSubtitle:'One click: dark baseline → light on per setting → repeated snapshots, to measure how long until the image is actually lit',backHome:'Back',params:'Test Parameters',paramsHint:'Each click runs one independent round. Change the timing and click again to compare settings.',delayLabel:'Configured delay (ms): wait this long after turn-on before the first capture',intervalLabel:'Capture interval (ms)',timeoutLabel:'Timeout (ms)',leaveOn:'Keep the light on after the test (recommended while printing)',runTest:'Light up & capture',cancel:'Cancel',result:'Result',statusIdle:'Not run',noResult:'No test yet. Click the button on the left to start.',chartTitle:'Brightness timeline',colFrame:'Frame',colTime:'After turn-on',colBrightness:'Brightness',colSnapshot:'Snapshot',colImage:'Image',shotsTitle:'Image comparison',
+    statusRunning:'Running',statusDone:'Done',statusFailed:'Failed',statusCanceled:'Canceled',
+    detectTime:'Turn-on → first lit frame',notDetected:'No lit frame detected',sufficient:'✓ enough',insufficient:'✕ too short',unknown:'—',
+    kDelay:'Configured delay',kBaseline:'Dark baseline → threshold',kMax:'Brightest frame',kTurnOn:'Turn-on call',kAttempts:'Captures after turn-on',kSnapshot:'Snapshot avg/max',kDuration:'Round duration',kState:'Light state',kFrames:'Total frames',
+    baselineFrame:'baseline',afterMs:'{ms} ms',detected:'lit',dark:'still dark',avg:'avg',max:'max',errors:'{n} capture errors',
+    shotBaseline:'Baseline (before light)',shotBright:'First lit frame',shotLast:'Last frame',
+    starting:'Starting test...',loadConfigFailed:'Failed to load config: {msg}',startFailed:'Start failed: {msg}',canceled:'Cancel requested',cancelFailed:'Cancel failed: {msg}',noCancel:'No test is running',
+    advice:'Conclusion',restoreFailed:'Failed to restore the light: {msg}',warning:'Notice',entityLabel:'Lighting entity',
+    stateOff:'off',stateOn:'on'}
+};
+const urlLang=new URLSearchParams(location.search).get('lang');
+let currentLang=urlLang==='en'||urlLang==='zh'?urlLang:(localStorage.getItem('layerwatch-language')||(navigator.language.toLowerCase().startsWith('zh')?'zh':'en'));
+function t(key,vars={}){let text=(messages[currentLang]&&messages[currentLang][key])||messages.zh[key]||key;for(const [k,v] of Object.entries(vars))text=text.replaceAll('{'+k+'}',v);return text}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function num(v,d=1){return (Number(v)||0).toFixed(d)}
+function applyI18n(){document.documentElement.lang=currentLang==='zh'?'zh-CN':'en';document.title=t('pageTitle')+' · LayerWatch';document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.dataset.i18n)});$('languageSelect').value=currentLang;if(lastResult)render(lastResult)}
+function setLanguage(lang){currentLang=lang==='en'?'en':'zh';localStorage.setItem('layerwatch-language',currentLang);applyI18n()}
+const toastEl=$('toast');let toastTimer;
+function toast(msg,bad=false){toastEl.textContent=msg;toastEl.style.background=bad?'#ffe2e2':'#e8fff5';toastEl.style.color=bad?'#5b1515':'#10251b';toastEl.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.style.display='none',4000)}
+async function request(url,opts={}){const r=await fetch(url,opts);const ct=r.headers.get('content-type')||'';const body=ct.includes('application/json')?await r.json():await r.text();if(!r.ok)throw new Error((body&&body.error)||body||('HTTP '+r.status));return body}
+
+function statusLabel(status){return{idle:t('statusIdle'),running:t('statusRunning'),done:t('statusDone'),failed:t('statusFailed'),canceled:t('statusCanceled')}[status]||status}
+function stateLabel(state){return state==='on'?t('stateOn'):state==='off'?t('stateOff'):(state||'—')}
+
+let lastResult=null;let pollTimer=null;
+
+async function loadConfig(){
+  try{
+    const c=await request('/api/config');
+    const delay=(c.lighting&&Number(c.lighting.delaySeconds))||0;
+    $('delayMs').value=String(delay*1000);
+    const entity=(c.lighting&&c.lighting.entity)||'';
+    $('entityHint').textContent=(entity?t('entityLabel')+' '+entity+' · ':'')+t('paramsHint');
+  }catch(e){toast(t('loadConfigFailed',{msg:e.message}),true)}
+}
+
+async function startTest(){
+  if($('btnRun').disabled)return;
+  const params=new URLSearchParams({
+    delayMs:String(Math.max(0,Number($('delayMs').value)||0)),
+    intervalMs:String(Math.max(100,Number($('intervalMs').value)||300)),
+    timeoutMs:String(Math.max(1000,Number($('timeoutMs').value)||20000)),
+    leaveLightOn:$('leaveLightOn').checked?'1':'0'
+  });
+  $('btnRun').disabled=true;$('btnCancel').disabled=false;
+  $('statusBadge').className='badge';
+  $('statusBadge').textContent=t('starting');
+  try{
+    const result=await request('/api/test/light-capture?'+params.toString(),{method:'POST'});
+    lastResult=result;render(result);startPolling();
+  }catch(e){
+    $('btnRun').disabled=false;$('btnCancel').disabled=true;
+    $('statusBadge').textContent=t('statusIdle');
+    toast(t('startFailed',{msg:e.message}),true);
+  }
+}
+
+async function cancelTest(){
+  try{await request('/api/test/light-capture',{method:'DELETE'});toast(t('canceled'))}
+  catch(e){toast(e.message.includes('没有')?t('noCancel'):t('cancelFailed',{msg:e.message}),true)}
+}
+
+function startPolling(){
+  clearInterval(pollTimer);
+  pollTimer=setInterval(async()=>{
+    try{
+      const result=await request('/api/test/light-capture');
+      if(result&&result.status!=='idle'){lastResult=result;render(result)}
+      if(!result||result.status!=='running'){
+        clearInterval(pollTimer);pollTimer=null;
+        $('btnRun').disabled=false;$('btnCancel').disabled=true;
+      }
+    }catch(e){clearInterval(pollTimer);pollTimer=null;$('btnRun').disabled=false;$('btnCancel').disabled=true}
+  },400);
+}
+
+function render(r){
+  if(!r||r.status==='idle')return;
+  const badge=$('statusBadge');
+  badge.textContent=statusLabel(r.status);
+  badge.className='badge '+(r.status==='done'?'ok':r.status==='failed'?'bad':'');
+  const running=r.status==='running';
+
+  const detect=r.detectMs;
+  const head=detect!=null
+    ? `<div class="metric">${detect}<small>ms</small></div><div class="muted">${t('detectTime')}</div>`
+    : `<div class="metric">—</div><div class="muted">${t('detectTime')}</div>`;
+  const sufficient=r.delaySufficient===true?`<span class="ok">${t('sufficient')}</span>`:r.delaySufficient===false?`<span class="bad">${t('insufficient')}</span>`:`<span class="muted">${t('unknown')}</span>`;
+  const frames=r.frames||[];
+  const after=frames.filter(f=>!f.baseline);
+  const snapshots=after.map(f=>f.snapshotMs);
+  const avg=snapshots.length?snapshots.reduce((a,b)=>a+b,0)/snapshots.length:0;
+  const slowest=snapshots.length?Math.max(...snapshots):0;
+
+  $('summary').innerHTML=`${head}<div class="kv">
+    <div><span>${t('kDelay')}</span>${r.delayMs} ms · ${sufficient}</div>
+    <div><span>${t('kBaseline')}</span>${num(r.baselineBrightness)} → ${num(r.threshold)}</div>
+    <div><span>${t('kMax')}</span>${num(r.maxBrightness)}</div>
+    <div><span>${t('kTurnOn')}</span>${r.turnOnMs} ms</div>
+    <div><span>${t('kAttempts')}</span>${r.attempts}${r.snapshotErrors?` · <span class="bad">${t('errors',{n:r.snapshotErrors})}</span>`:''}</div>
+    <div><span>${t('kSnapshot')}</span>${Math.round(avg)} / ${slowest} ms</div>
+    <div><span>${t('kFrames')}</span>${frames.length}</div>
+    <div><span>${t('kState')}</span>${esc(stateLabel(r.initialState))} → ${esc(stateLabel(r.restoredState))}</div>
+    <div><span>${t('kDuration')}</span>${r.durationMs||0} ms</div>
+  </div>`;
+
+  const notes=[];
+  if(r.warning)notes.push(`<div class="advice"><b>${t('warning')}</b> ${esc(r.warning)}</div>`);
+  if(r.advice)notes.push(`<div class="advice ${detect==null?'bad':''}"><b>${t('advice')}</b> ${esc(r.advice)}</div>`);
+  if(r.restoreError)notes.push(`<div class="advice bad">${t('restoreFailed',{msg:esc(r.restoreError)})}</div>`);
+  $('advice').innerHTML=notes.join('');
+
+  $('chartCard').hidden=frames.length===0;
+  $('chartHint').textContent=detect!=null?t('detected')+' '+detect+' ms':(running?t('statusRunning'):t('notDetected'));
+  $('frameRows').innerHTML=frames.map(f=>{
+    const cls=f.baseline?'base':(f.bright?'bright':'');
+    const label=f.baseline?t('baselineFrame'):`+${f.afterMs} ms`;
+    const mark=f.baseline?'':(f.bright?`<span class="ok">${t('detected')}</span>`:`<span class="muted">${t('dark')}</span>`);
+    return `<tr>
+      <td>#${f.index}<div class="muted">${mark}</div></td>
+      <td>${label}</td>
+      <td style="min-width:170px"><div style="display:flex;align-items:center;gap:8px"><div class="bar"><i class="${cls}" style="width:${Math.max(2,Math.min(100,f.brightness))}%"></i></div><span>${num(f.brightness)}</span></div></td>
+      <td>${f.snapshotMs} ms</td>
+      <td>${f.imageUrl?`<a href="${f.imageUrl}" target="_blank"><img src="${f.imageUrl}" loading="lazy" alt=""></a>`:''}</td>
+    </tr>`;
+  }).join('');
+
+  const shots=[];
+  if(r.baselineImage)shots.push({url:r.baselineImage,label:t('shotBaseline')});
+  if(r.brightImage)shots.push({url:r.brightImage,label:`${t('shotBright')}${detect!=null?` · ${detect} ms`:''}`});
+  if(r.lastImage&&r.lastImage!==r.brightImage)shots.push({url:r.lastImage,label:t('shotLast')});
+  $('shotsCard').hidden=shots.length===0;
+  $('shots').innerHTML=shots.map(s=>`<div class="shot"><a href="${s.url}" target="_blank"><img src="${s.url}" alt=""></a><p>${esc(s.label)}</p></div>`).join('');
+
+  $('btnRun').disabled=running;
+  $('btnCancel').disabled=!running;
+}
+
+async function boot(){
+  applyI18n();
+  await loadConfig();
+  try{
+    const result=await request('/api/test/light-capture');
+    if(result&&result.status!=='idle'){lastResult=result;render(result);if(result.status==='running')startPolling()}
+  }catch(e){}
+}
+boot();
+</script>
+</body>
+</html>

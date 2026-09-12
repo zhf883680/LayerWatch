@@ -228,3 +228,59 @@ func TestAnalyzeUsesTempImageSourceWithCache(t *testing.T) {
 		t.Fatalf("image url 应为 oss:// 开头，实际 %.40s", u)
 	}
 }
+
+// 调整 maxImageWidth 会改变缩图后的字节，于是缓存里的旧 key 失效一次；
+// 但上传器本身不会重建，新的设置下同一帧仍然会复用。
+func TestAnalyzeTempCacheSurvivesMaxImageWidthChange(t *testing.T) {
+	store := testConfigStore(t, func(cfg *config.Config) {
+		cfg.AI.BaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+		cfg.AI.ImageSource = config.ImageSourceTemp
+		cfg.AI.MaxImageWidth = 640
+	})
+	service := New(store)
+	var uploads int32
+	service.client = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/uploads"):
+			return jsonResponse(http.StatusOK, map[string]any{"data": map[string]any{
+				"upload_dir": "dashscope-temp/1", "upload_host": "https://oss.example.com",
+				"policy": "p", "signature": "s", "oss_access_key_id": "ak",
+			}}), nil
+		case r.URL.Host == "oss.example.com":
+			atomic.AddInt32(&uploads, 1)
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(""))}, nil
+		default:
+			return jsonResponse(http.StatusOK, chatOK(`{"status":"normal","confidence":0.7,"reason":"ok"}`, nil)), nil
+		}
+	})}
+
+	// 原图要比 maxImageWidth 大，否则缩图会原样返回，改设置也不会改变字节。
+	img := tinyJPEG(t, 1024, 768)
+	analyze := func() {
+		t.Helper()
+		if _, err := service.Analyze(context.Background(), [][]byte{img}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	analyze()
+	analyze()
+	if got := atomic.LoadInt32(&uploads); got != 1 {
+		t.Fatalf("同一设置下同一帧应只上传一次，实际 %d 次", got)
+	}
+
+	cfg := store.Get()
+	cfg.AI.MaxImageWidth = 256
+	if err := store.Update(cfg); err != nil {
+		t.Fatal(err)
+	}
+	analyze()
+	if got := atomic.LoadInt32(&uploads); got != 2 {
+		t.Fatalf("改缩图宽度后应重新上传一次，实际 %d 次", got)
+	}
+	analyze()
+	analyze()
+	if got := atomic.LoadInt32(&uploads); got != 2 {
+		t.Fatalf("新设置下应恢复复用，实际上传 %d 次", got)
+	}
+}
